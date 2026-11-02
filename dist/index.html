@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#eae7e1" />
+    <title>RICK'S CLOSET — Interactive Collection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet" />
+    <script type="module" crossorigin src="/assets/index-ChKesuMu.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BmemiTYa.css">
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <span class="topbar-label">INDEPENDENT WARDROBE · 2026</span>
+        <div class="brand" aria-label="Rick's Closet"><span>RICK'S</span><strong>Closet</strong></div>
+        <button class="sound-button" id="info-button" aria-label="About this project" title="About this project">ⓘ</button>
+      </header>
+      <main class="stage" aria-label="Interactive 3D clothing collection">
+        <div id="scene" aria-hidden="true"></div>
+        <div class="stage-caption">THE EVERYDAY ARCHIVE <span>—</span> VOL. 01</div>
+        <div class="drag-hint">DRAG TO EXPLORE <span>↔</span></div>
+        <section class="bottom-ui" aria-live="polite">
+          <div class="counter" id="counter">01 / 09</div>
+          <div class="product-name" id="product-name">Matchday Jersey</div>
+          <div class="product-detail" id="product-detail">Cotton blend · $48</div>
+          <div class="controls">
+            <button class="nav-button" id="prev" aria-label="Previous clothing item">←</button>
+            <button class="view-button" id="view">VIEW PIECE <span>↗</span></button>
+            <button class="nav-button" id="next" aria-label="Next clothing item">→</button>
+          </div>
+        </section>
+        <div class="toast" id="toast" role="status"></div>
+      </main>
+      <footer class="footer"><span>CURATED WITH CARE</span><span>BUILT WITH THREE.JS</span></footer>
+      <dialog id="product-dialog" class="product-dialog">
+        <button id="close-dialog" class="dialog-close" aria-label="Close">×</button>
+        <span class="dialog-kicker">THE EVERYDAY ARCHIVE</span>
+        <h2 id="dialog-name"></h2>
+        <p id="dialog-description"></p>
+        <span id="dialog-price" class="dialog-price"></span>
+        <button class="dialog-cta" id="dialog-cta">BACK TO COLLECTION ↗</button>
+      </dialog>
+    </div>
+  </body>
+</html>
