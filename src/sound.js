@@ -1,4 +1,4 @@
-// Synthetic Web Audio API Sound Generator for Luxury Digital Atelier
+// Synthetic Web Audio API Sound Generator for Rick's Closet
 
 class SoundEngine {
   constructor() {

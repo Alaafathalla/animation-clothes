@@ -3,22 +3,22 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import './style.css';
 import { collection } from './data.js';
 import { createGarmentPiece } from './garments.js';
-import { createStudioEnvironment } from './textures.js';
+import { createStudioEnvironment, getGarmentPreviewImage } from './textures.js';
 import { sound } from './sound.js';
 
 /* ==========================================================================
    State & App Variables
    ========================================================================== */
 
+const RACK_SPACING = 2.25;
+
 const state = {
   mode: 'carousel', // 'carousel' | 'inspect'
-  selectedIndex: 0,
-  activeCategory: 'all',
-  filteredIndices: collection.map((_, i) => i),
+  selectedIndex: 4, // "Faces Shirt" centered initially matching reference
   cart: [],
   selectedSize: 'M',
   isDragging: false,
-  dragMode: null, // 'spin' | 'rack'
+  dragMode: null, // 'rotateGarment' | 'rack' | 'selectOrRack'
   dragTargetPiece: null,
   dragStartX: 0,
   dragStartY: 0,
@@ -26,11 +26,14 @@ const state = {
   dragVelocity: 0,
   lastPointerX: 0,
   lastPointerTime: 0,
-  hoveredIndex: -1,
-  isFloatingCardOpen: false
+  hoveredIndex: -1
 };
 
-const RACK_SPACING = 2.25;
+// Subtle mouse parallax state ("can move slightly")
+let mouseParallaxX = 0;
+let mouseParallaxY = 0;
+let targetParallaxX = 0;
+let targetParallaxY = 0;
 
 /* ==========================================================================
    Three.js Scene, Camera, Renderer Setup
@@ -39,10 +42,10 @@ const RACK_SPACING = 2.25;
 const container = document.querySelector('#webgl-container');
 const scene = new THREE.Scene();
 
-// Camera setup with perspective suited for fashion editorial showcasing
+// Eye-level camera with natural perspective for boutique clothes rack
 const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
-const carouselCamPos = new THREE.Vector3(0, 1.35, 9.6);
-const carouselCamLook = new THREE.Vector3(0, 1.15, 0);
+const carouselCamPos = new THREE.Vector3(0, 1.35, 8.8);
+const carouselCamLook = new THREE.Vector3(0, 1.25, 0);
 
 camera.position.copy(carouselCamPos);
 camera.lookAt(carouselCamLook);
@@ -58,20 +61,20 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.38;
+renderer.toneMappingExposure = 1.36;
 container.appendChild(renderer.domElement);
 
-// Procedural Studio Environment for realistic soft reflections on metals & fabrics
+// Procedural warm studio environment map
 const studioEnvMap = createStudioEnvironment(renderer);
 scene.environment = studioEnvMap;
 
-// Orbit Controls for 360° Inspector Mode
+// Orbit Controls (Active only in 3D Inspect Mode)
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enabled = false;
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
-controls.minDistance = 2.4;
-controls.maxDistance = 6.8;
+controls.minDistance = 2.2;
+controls.maxDistance = 6.0;
 controls.minPolarAngle = Math.PI * 0.28;
 controls.maxPolarAngle = Math.PI * 0.72;
 controls.target.set(0, 1.25, 0);
@@ -80,12 +83,10 @@ controls.target.set(0, 1.25, 0);
    Studio Lighting
    ========================================================================== */
 
-// Soft ambient bounce matching warm boutique aesthetic
-const ambientLight = new THREE.HemisphereLight(0xfffdfa, 0xdcd3c4, 1.35);
+const ambientLight = new THREE.HemisphereLight(0xfffdfa, 0xdcd3c4, 1.4);
 scene.add(ambientLight);
 
-// Key Directional Light (Soft architectural key shadow)
-const keyLight = new THREE.DirectionalLight(0xfffbf2, 2.6);
+const keyLight = new THREE.DirectionalLight(0xfffbf2, 2.8);
 keyLight.position.set(-4.5, 8.5, 7.5);
 keyLight.castShadow = true;
 keyLight.shadow.mapSize.set(2048, 2048);
@@ -99,18 +100,15 @@ keyLight.shadow.bias = -0.00015;
 keyLight.shadow.radius = 4;
 scene.add(keyLight);
 
-// Warm Fill Light
-const fillLight = new THREE.DirectionalLight(0xece3d5, 1.15);
+const fillLight = new THREE.DirectionalLight(0xece3d5, 1.2);
 fillLight.position.set(7, 3.5, 5);
 scene.add(fillLight);
 
-// Kicker / Rim Backlight (Accentuates shoulder contours and cloth sheen)
-const rimLight = new THREE.DirectionalLight(0xfff4db, 1.2);
+const rimLight = new THREE.DirectionalLight(0xfff4db, 1.3);
 rimLight.position.set(0, 5, -6.5);
 scene.add(rimLight);
 
-// Dynamic Gallery Spotlight that tracks the active piece
-const spotLight = new THREE.SpotLight(0xfff6eb, 2.8, 20, Math.PI / 5, 0.45, 1.2);
+const spotLight = new THREE.SpotLight(0xfff6eb, 2.8, 22, Math.PI / 5, 0.45, 1.2);
 spotLight.position.set(0, 6.0, 5.0);
 spotLight.castShadow = true;
 spotLight.shadow.mapSize.set(1024, 1024);
@@ -125,12 +123,11 @@ scene.add(spotLight.target);
 const railGroup = new THREE.Group();
 scene.add(railGroup);
 
-// Sleek dark gunmetal steel wardrobe rail as in reference
 const railMaterial = new THREE.MeshStandardMaterial({
   color: 0x222426,
-  metalness: 0.85,
-  roughness: 0.3,
-  envMapIntensity: 1.1
+  metalness: 0.88,
+  roughness: 0.28,
+  envMapIntensity: 1.15
 });
 
 const railMesh = new THREE.Mesh(
@@ -142,17 +139,15 @@ railMesh.position.set(0, 2.62, 0);
 railMesh.castShadow = true;
 railGroup.add(railMesh);
 
-// Minimalist Wall/Ceiling Drop Brackets along the rail
 [-12, -4, 4, 12].forEach((bx) => {
   const bracket = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.012, 2.2, 16),
+    new THREE.CylinderGeometry(0.011, 0.011, 2.2, 16),
     railMaterial
   );
   bracket.position.set(bx, 3.72, 0);
   railGroup.add(bracket);
 });
 
-// Warm boutique studio floor matching reference photo
 const floorGeo = new THREE.PlaneGeometry(160, 40);
 const floorMat = new THREE.MeshStandardMaterial({
   color: 0xeae4d9,
@@ -161,12 +156,12 @@ const floorMat = new THREE.MeshStandardMaterial({
 });
 const floorMesh = new THREE.Mesh(floorGeo, floorMat);
 floorMesh.rotation.x = -Math.PI / 2;
-floorMesh.position.y = -1.9;
+floorMesh.position.y = -1.90;
 floorMesh.receiveShadow = true;
 scene.add(floorMesh);
 
 /* ==========================================================================
-   Garment Pieces Creation & Rack Management
+   Garment Pieces & Rack Management
    ========================================================================== */
 
 const rackContainer = new THREE.Group();
@@ -181,58 +176,48 @@ const pieces = collection.map((item, index) => {
 let targetOffset = -state.selectedIndex * RACK_SPACING;
 let currentOffset = targetOffset;
 let previousOffset = currentOffset;
+rackContainer.position.x = currentOffset;
 
 /* ==========================================================================
    UI DOM Elements
    ========================================================================== */
 
-const itemIndexEl = document.querySelector('#item-index');
-const itemBadgeEl = document.querySelector('#item-badge');
-const itemTitleEl = document.querySelector('#item-title');
-const itemTaglineEl = document.querySelector('#item-tagline');
-const itemPriceEl = document.querySelector('#item-price');
-const swatchesPreviewEl = document.querySelector('#swatches-preview');
-const scrubberFillEl = document.querySelector('#scrubber-fill');
-const scrubberHandleEl = document.querySelector('#scrubber-handle');
-const scrubberTrackEl = document.querySelector('#scrubber-track');
-
-// Floating 3D Info Card Elements
-const floatingCardEl = document.querySelector('#floating-info-card');
-const cardBadgeEl = document.querySelector('#card-badge');
-const cardCloseBtn = document.querySelector('#card-close-btn');
-const cardTitleEl = document.querySelector('#card-title');
-const cardPriceEl = document.querySelector('#card-price');
-const cardOriginEl = document.querySelector('#card-origin');
-const cardDescEl = document.querySelector('#card-desc');
-const cardActiveColorEl = document.querySelector('#card-active-color');
-const cardSwatchesRowEl = document.querySelector('#card-swatches-row');
-const cardSpinBtn = document.querySelector('#card-spin-btn');
-const cardInspectBtn = document.querySelector('#card-inspect-btn');
-const cardAddBagBtn = document.querySelector('#card-add-bag-btn');
-const cardBtnPriceEl = document.querySelector('#card-btn-price');
-const connectorLine = document.querySelector('#connector-line');
-const connectorAnchor = document.querySelector('#connector-anchor');
-
-// Inspector DOM elements
-const inspKickerEl = document.querySelector('#insp-kicker');
-const inspTitleEl = document.querySelector('#insp-title');
-const inspPriceEl = document.querySelector('#insp-price');
-const inspDescEl = document.querySelector('#insp-description');
-const inspFabricEl = document.querySelector('#insp-fabric');
-const inspWeightEl = document.querySelector('#insp-weight');
-const inspFitEl = document.querySelector('#insp-fit');
-const inspOriginEl = document.querySelector('#insp-origin');
-const ctaPriceEl = document.querySelector('#cta-price');
-const colorwayListEl = document.querySelector('#colorway-list');
-const activeColorwayNameEl = document.querySelector('#active-colorway-name');
-const sizeChipsContainer = document.querySelector('#size-chips');
-const hotspotsLayerEl = document.querySelector('#hotspots-layer');
-
-// Header & Utility elements
+const dockItemTitleEl = document.querySelector('#dock-item-title');
+const dockItemPriceEl = document.querySelector('#dock-item-price');
+const rotateLeftBtn = document.querySelector('#rotate-left-btn');
+const rotateRightBtn = document.querySelector('#rotate-right-btn');
+const rackPrevBtn = document.querySelector('#rack-prev-btn');
+const rackNextBtn = document.querySelector('#rack-next-btn');
+const viewPieceBtn = document.querySelector('#view-piece-btn');
+const resetBtn = document.querySelector('#reset-btn');
 const soundBtn = document.querySelector('#sound-btn');
-const helpBtn = document.querySelector('#help-btn');
 const bagBtn = document.querySelector('#bag-btn');
 const bagCountEl = document.querySelector('#bag-count');
+
+// Detail Sheet Elements
+const detailBackdrop = document.querySelector('#detail-backdrop');
+const detailSheet = document.querySelector('#detail-sheet');
+const sheetProductImg = document.querySelector('#sheet-product-img');
+const sheetImgColorBadge = document.querySelector('#sheet-img-color-badge');
+const sheetCloseBtn = document.querySelector('#sheet-close-btn');
+const sheetBadgeEl = document.querySelector('#sheet-badge');
+const sheetTitleEl = document.querySelector('#sheet-title');
+const sheetPriceEl = document.querySelector('#sheet-price');
+const sheetUsdPriceEl = document.querySelector('#sheet-usd-price');
+const sheetDescEl = document.querySelector('#sheet-desc');
+const sheetColorNameEl = document.querySelector('#sheet-color-name');
+const sheetSwatchesEl = document.querySelector('#sheet-swatches');
+const sheetSizesEl = document.querySelector('#sheet-sizes');
+const sheetFabricEl = document.querySelector('#sheet-fabric');
+const sheetWeightEl = document.querySelector('#sheet-weight');
+const sheetFitEl = document.querySelector('#sheet-fit');
+const sheetOriginEl = document.querySelector('#sheet-origin');
+const sheetAddBagBtn = document.querySelector('#sheet-add-bag-btn');
+const sheetBtnPriceEl = document.querySelector('#sheet-btn-price');
+const sheetInspectBtn = document.querySelector('#sheet-inspect-btn');
+const exitInspectBtn = document.querySelector('#exit-inspect-btn');
+
+// Cart Drawer Elements
 const bagDrawer = document.querySelector('#bag-drawer');
 const drawerBackdrop = document.querySelector('#drawer-backdrop');
 const closeBagBtn = document.querySelector('#close-bag-btn');
@@ -240,16 +225,7 @@ const cartItemsContainer = document.querySelector('#cart-items');
 const cartItemCountEl = document.querySelector('#cart-item-count');
 const cartSubtotalEl = document.querySelector('#cart-subtotal');
 const checkoutBtn = document.querySelector('#checkout-btn');
-const helpDialog = document.querySelector('#help-dialog');
-const closeHelpBtn = document.querySelector('#close-help-btn');
-const gotItBtn = document.querySelector('#got-it-btn');
 const toastEl = document.querySelector('#toast');
-const exitInspectBtn = document.querySelector('#exit-inspect-btn');
-const closeInspBtn = document.querySelector('#close-insp-btn');
-const inspectBtn = document.querySelector('#inspect-btn');
-const addToBagBtn = document.querySelector('#add-to-bag-btn');
-const prevBtn = document.querySelector('#prev-btn');
-const nextBtn = document.querySelector('#next-btn');
 
 /* ==========================================================================
    UI Updates & Synchronization
@@ -261,177 +237,88 @@ function showToast(msg) {
   clearTimeout(window._toastTimeout);
   window._toastTimeout = setTimeout(() => {
     toastEl.classList.remove('visible');
-  }, 2800);
+  }, 2600);
 }
 
-function updateCarouselUI() {
+function updateDockUI() {
   const currentItem = collection[state.selectedIndex];
   if (!currentItem) return;
 
-  const currentFilteredPos = state.filteredIndices.indexOf(state.selectedIndex);
-  const total = state.filteredIndices.length;
+  dockItemTitleEl.textContent = currentItem.name;
+  dockItemPriceEl.textContent = currentItem.displayPrice || `₦${(currentItem.price * 1000).toLocaleString()}`;
+}
 
-  itemIndexEl.textContent = `${String(currentFilteredPos + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
-  itemBadgeEl.textContent = currentItem.category.toUpperCase();
-  itemTitleEl.textContent = currentItem.name;
-  itemTaglineEl.textContent = currentItem.tagline;
-  itemPriceEl.textContent = `$${currentItem.price}`;
+function updateSheetProductImage(item, colorway) {
+  if (sheetProductImg) {
+    const imgDataUrl = getGarmentPreviewImage(item, colorway);
+    sheetProductImg.src = imgDataUrl;
+    sheetProductImg.alt = `${item.name} - ${colorway.name}`;
+  }
+  if (sheetImgColorBadge) {
+    sheetImgColorBadge.textContent = colorway.name.toUpperCase();
+  }
+}
 
-  // Swatches preview
-  swatchesPreviewEl.innerHTML = '';
+function showDetailSheet() {
+  const currentItem = collection[state.selectedIndex];
   const currentPiece = pieces[state.selectedIndex];
+  if (!currentItem || !currentPiece) return;
+
+  sheetBadgeEl.textContent = `${currentItem.category.toUpperCase()} · ${currentItem.weight}`;
+  sheetTitleEl.textContent = currentItem.name;
+  sheetPriceEl.textContent = currentItem.displayPrice;
+  sheetUsdPriceEl.textContent = `($${currentItem.price}.00 USD)`;
+  sheetDescEl.textContent = currentItem.description;
+  sheetColorNameEl.textContent = currentPiece.currentColorway.name;
+  sheetFabricEl.textContent = currentItem.material;
+  sheetWeightEl.textContent = currentItem.weight;
+  sheetFitEl.textContent = currentItem.fit;
+  sheetOriginEl.textContent = currentItem.origin;
+  sheetBtnPriceEl.textContent = currentItem.displayPrice;
+
+  // Render product reference image matching active colorway
+  updateSheetProductImage(currentItem, currentPiece.currentColorway);
+
+  sheetSwatchesEl.innerHTML = '';
   currentItem.colorways.forEach((cw) => {
-    const dot = document.createElement('div');
-    dot.className = `swatch-dot ${cw.name === currentPiece.currentColorway.name ? 'active' : ''}`;
-    dot.style.backgroundColor = cw.hex;
-    dot.title = cw.name;
-    swatchesPreviewEl.appendChild(dot);
-  });
-
-  // Scrubber percentage
-  const pct = total > 1 ? (currentFilteredPos / (total - 1)) * 100 : 50;
-  scrubberFillEl.style.width = `${pct}%`;
-  scrubberHandleEl.style.left = `${pct}%`;
-}
-
-/* ==========================================================================
-   Floating 3D Info Card Management
-   ========================================================================== */
-
-function showFloatingInfoCard(piece) {
-  state.isFloatingCardOpen = true;
-  const item = piece.item;
-
-  cardBadgeEl.textContent = `${item.category.toUpperCase()} // ${item.weight}`;
-  cardTitleEl.textContent = item.name;
-  cardPriceEl.textContent = `$${item.price}.00`;
-  cardOriginEl.textContent = item.origin.toUpperCase();
-  cardDescEl.textContent = item.description;
-  cardActiveColorEl.textContent = piece.currentColorway.name;
-  cardBtnPriceEl.textContent = `$${item.price}`;
-
-  // Build swatches
-  cardSwatchesRowEl.innerHTML = '';
-  item.colorways.forEach((cw) => {
     const dot = document.createElement('button');
-    dot.className = `card-swatch-dot ${cw.name === piece.currentColorway.name ? 'active' : ''}`;
+    dot.className = `sheet-swatch-dot ${cw.name === currentPiece.currentColorway.name ? 'active' : ''}`;
     dot.style.backgroundColor = cw.hex;
     dot.title = cw.name;
-    dot.addEventListener('click', (e) => {
-      e.stopPropagation();
-      piece.updateColorway(cw);
+    dot.addEventListener('click', () => {
+      currentPiece.updateColorway(cw);
       sound.tapButton();
-      showFloatingInfoCard(piece);
-      updateCarouselUI();
-    });
-    cardSwatchesRowEl.appendChild(dot);
-  });
-
-  floatingCardEl.classList.add('visible');
-  floatingCardEl.setAttribute('aria-hidden', 'false');
-}
-
-function hideFloatingInfoCard() {
-  state.isFloatingCardOpen = false;
-  floatingCardEl.classList.remove('visible');
-  floatingCardEl.setAttribute('aria-hidden', 'true');
-}
-
-cardCloseBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  hideFloatingInfoCard();
-  sound.tapButton();
-});
-
-cardSpinBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  const currentPiece = pieces[state.selectedIndex];
-  if (currentPiece) {
-    currentPiece.triggerPresentationSpin();
-    sound.swivelHanger();
-  }
-});
-
-cardInspectBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  enterInspectMode();
-});
-
-cardAddBagBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  addToBagBtn.click();
-});
-
-function updateInspectorUI() {
-  const item = collection[state.selectedIndex];
-  const piece = pieces[state.selectedIndex];
-  if (!item || !piece) return;
-
-  inspKickerEl.textContent = `${item.origin.toUpperCase()} · ${item.weight}`;
-  inspTitleEl.textContent = item.name;
-  inspPriceEl.textContent = `$${item.price}.00`;
-  inspDescEl.textContent = item.description;
-  inspFabricEl.textContent = item.material;
-  inspWeightEl.textContent = item.weight;
-  inspFitEl.textContent = item.fit;
-  inspOriginEl.textContent = item.origin;
-  ctaPriceEl.textContent = `$${item.price}`;
-  activeColorwayNameEl.textContent = piece.currentColorway.name;
-
-  // Build colorway pill selector
-  colorwayListEl.innerHTML = '';
-  item.colorways.forEach((cw) => {
-    const pill = document.createElement('button');
-    pill.className = `colorway-pill ${cw.name === piece.currentColorway.name ? 'active' : ''}`;
-    pill.innerHTML = `<span class="color-dot" style="background-color: ${cw.hex}"></span><span>${cw.name}</span>`;
-    pill.addEventListener('click', () => {
-      piece.updateColorway(cw);
-      sound.tapButton();
-      updateInspectorUI();
-      updateCarouselUI();
-      if (state.isFloatingCardOpen) {
-        showFloatingInfoCard(piece);
-      }
-    });
-    colorwayListEl.appendChild(pill);
-  });
-
-  // Rebuild 3D Hotspot pins
-  hotspotsLayerEl.innerHTML = '';
-  if (item.hotspots) {
-    item.hotspots.forEach((hs, idx) => {
-      const pin = document.createElement('div');
-      pin.className = 'hotspot-pin';
-      pin.dataset.index = idx;
-      pin.innerHTML = `
-        <div class="hotspot-pulse"></div>
-        <div class="hotspot-circle"></div>
-        <div class="hotspot-tooltip">
-          <strong>${hs.title}</strong>
-          <p>${hs.text}</p>
-        </div>
-      `;
-      pin.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sound.snapFocus();
-        pin.classList.toggle('active');
+      updateSheetProductImage(currentItem, cw);
+      sheetColorNameEl.textContent = cw.name;
+      sheetSwatchesEl.querySelectorAll('.sheet-swatch-dot').forEach((sDot, sIdx) => {
+        sDot.classList.toggle('active', currentItem.colorways[sIdx].name === cw.name);
       });
-      hotspotsLayerEl.appendChild(pin);
     });
-  }
+    sheetSwatchesEl.appendChild(dot);
+  });
+
+  detailSheet.classList.add('visible');
+  detailBackdrop.classList.add('visible');
+  detailSheet.setAttribute('aria-hidden', 'false');
+}
+
+function hideDetailSheet() {
+  detailSheet.classList.remove('visible');
+  detailBackdrop.classList.remove('visible');
+  detailSheet.setAttribute('aria-hidden', 'true');
 }
 
 function updateCartUI() {
   const totalCount = state.cart.reduce((sum, item) => sum + item.qty, 0);
-  const subtotal = state.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const totalSubtotal = state.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   bagCountEl.textContent = totalCount;
   cartItemCountEl.textContent = totalCount;
-  cartSubtotalEl.textContent = `$${subtotal.toFixed(2)}`;
+  cartSubtotalEl.textContent = `₦${(totalSubtotal * 1250).toLocaleString()}`;
 
   cartItemsContainer.innerHTML = '';
   if (state.cart.length === 0) {
-    cartItemsContainer.innerHTML = '<div class="empty-cart-msg">Your collection bag is empty.</div>';
+    cartItemsContainer.innerHTML = '<div class="empty-cart-msg">Your shopping cart is empty.</div>';
     return;
   }
 
@@ -443,7 +330,7 @@ function updateCartUI() {
         <div class="cart-item-title">${cItem.name}</div>
         <div class="cart-item-sub">${cItem.colorway} · Size ${cItem.size} · Qty ${cItem.qty}</div>
       </div>
-      <div class="cart-item-price">$${cItem.price * cItem.qty}</div>
+      <div class="cart-item-price">${cItem.displayPrice}</div>
     `;
     cartItemsContainer.appendChild(row);
   });
@@ -458,64 +345,92 @@ function selectIndex(newIndex, playAudio = true) {
   state.selectedIndex = ((newIndex % count) + count) % count;
   targetOffset = -state.selectedIndex * RACK_SPACING;
 
+  // Reset rotation of other garments smoothly back to facing front
+  pieces.forEach((piece, idx) => {
+    if (idx !== state.selectedIndex) {
+      piece.resetRotation();
+    }
+  });
+
   if (playAudio) {
-    sound.slideHanger(1.1);
+    sound.slideHanger(1.0);
     sound.snapFocus();
   }
 
-  updateCarouselUI();
-  if (state.mode === 'inspect') {
-    updateInspectorUI();
-  }
-}
-
-function selectCategory(category) {
-  state.activeCategory = category;
-  document.querySelectorAll('.filter-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.category === category);
-  });
-
-  if (category === 'all') {
-    state.filteredIndices = collection.map((_, i) => i);
-  } else {
-    state.filteredIndices = collection
-      .map((item, idx) => (item.category === category ? idx : -1))
-      .filter((idx) => idx !== -1);
-  }
-
-  const categoryLabel = document.querySelector('#stamp-category');
-  if (categoryLabel) {
-    categoryLabel.textContent = category.toUpperCase() + ` (${state.filteredIndices.length})`;
-  }
-
-  // Jump to first item in this category if active item is outside
-  if (!state.filteredIndices.includes(state.selectedIndex) && state.filteredIndices.length > 0) {
-    selectIndex(state.filteredIndices[0]);
-  } else {
-    updateCarouselUI();
+  updateDockUI();
+  if (detailSheet.classList.contains('visible')) {
+    showDetailSheet();
   }
 }
 
 /* ==========================================================================
-   Mode Switching: Carousel <-> 360° Inspector
+   Rotate Active Piece by Arrows ("rotate by arrows")
+   ========================================================================== */
+
+function rotateActivePiece(directionMultiplier) {
+  const activePiece = pieces[state.selectedIndex];
+  if (!activePiece) return;
+
+  activePiece.is360Spinning = false;
+  // Rotate smoothly by 45 degrees (PI / 4) per click
+  activePiece.targetRotationY += directionMultiplier * (Math.PI / 4);
+  sound.swivelHanger();
+}
+
+let arrowHoldTimer = null;
+let arrowHoldInterval = null;
+
+function setupArrowRotation(btn, direction) {
+  const startRotate = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    rotateActivePiece(direction);
+
+    // If held down, continuously spin 360 smoothly
+    arrowHoldTimer = setTimeout(() => {
+      arrowHoldInterval = setInterval(() => {
+        const activePiece = pieces[state.selectedIndex];
+        if (activePiece) {
+          activePiece.targetRotationY += direction * 0.07;
+        }
+      }, 25);
+    }, 280);
+  };
+
+  const stopRotate = () => {
+    clearTimeout(arrowHoldTimer);
+    clearInterval(arrowHoldInterval);
+    arrowHoldTimer = null;
+    arrowHoldInterval = null;
+  };
+
+  btn.addEventListener('pointerdown', startRotate);
+  btn.addEventListener('pointerup', stopRotate);
+  btn.addEventListener('pointerleave', stopRotate);
+  btn.addEventListener('pointercancel', stopRotate);
+}
+
+setupArrowRotation(rotateLeftBtn, -1);
+setupArrowRotation(rotateRightBtn, 1);
+
+/* ==========================================================================
+   Mode Switching: Carousel <-> 360° Orbit Inspector
    ========================================================================== */
 
 function enterInspectMode() {
   state.mode = 'inspect';
-  hideFloatingInfoCard();
+  hideDetailSheet();
   document.body.classList.remove('mode-carousel');
   document.body.classList.add('mode-inspect');
 
   sound.whoosh();
-  updateInspectorUI();
 
-  // Position camera focused directly in front of the selected garment
   const selectedPiece = pieces[state.selectedIndex];
   const pieceWorldX = selectedPiece.root.position.x + currentOffset;
 
   controls.enabled = true;
   controls.target.set(pieceWorldX, 1.25, 0);
-  camera.position.set(pieceWorldX, 1.35, 4.2);
+  camera.position.set(pieceWorldX, 1.35, 4.0);
 }
 
 function exitInspectMode() {
@@ -528,7 +443,9 @@ function exitInspectMode() {
 }
 
 /* ==========================================================================
-   Raycasting & Touch/Pointer Interactions
+   Raycasting & Pointer Interactions
+   - Active centered piece can move slightly / tilt / rotate
+   - Dragging outside moves the rack horizontally
    ========================================================================== */
 
 const raycaster = new THREE.Raycaster();
@@ -541,7 +458,6 @@ function getIntersectedPiece(event) {
 
   raycaster.setFromCamera(mouse, camera);
 
-  // Test intersection against garments in rack
   const candidateMeshes = [];
   pieces.forEach((piece) => {
     piece.garmentGroup.traverse((child) => {
@@ -559,7 +475,7 @@ function getIntersectedPiece(event) {
   return null;
 }
 
-// Touch / Pointer Down on WebGL Canvas
+// Pointer Down
 renderer.domElement.addEventListener('pointerdown', (e) => {
   if (state.mode === 'inspect') return;
 
@@ -572,12 +488,17 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   state.dragVelocity = 0;
   state.dragStartOffset = targetOffset;
 
-  if (hitPiece) {
-    // Touch directly on garment: enable spin mode
-    state.dragMode = 'spin';
+  if (hitPiece && hitPiece.index === state.selectedIndex) {
+    // Pressed directly on the active piece: can move/rotate it slightly
+    state.dragMode = 'rotateGarment';
+    state.dragTargetPiece = hitPiece;
+    hitPiece.is360Spinning = false;
+  } else if (hitPiece && hitPiece.index !== state.selectedIndex) {
+    // Clicked an off-center piece on the rail
+    state.dragMode = 'selectOrRack';
     state.dragTargetPiece = hitPiece;
   } else {
-    // Touch on background: slide wardrobe rack
+    // Dragging background slides the rack
     state.dragMode = 'rack';
     state.dragTargetPiece = null;
   }
@@ -585,7 +506,14 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   renderer.domElement.setPointerCapture(e.pointerId);
 });
 
+// Pointer Move: Tracks parallax ("can move slightly") and drag
 window.addEventListener('pointermove', (e) => {
+  // Update mouse parallax coordinates
+  const widthHalf = window.innerWidth / 2;
+  const heightHalf = window.innerHeight / 2;
+  targetParallaxX = (e.clientX - widthHalf) / widthHalf; // -1 to +1
+  targetParallaxY = (e.clientY - heightHalf) / heightHalf; // -1 to +1
+
   if (state.mode === 'carousel') {
     if (state.isDragging) {
       const now = performance.now();
@@ -596,13 +524,14 @@ window.addEventListener('pointermove', (e) => {
       state.lastPointerX = e.clientX;
       state.lastPointerTime = now;
 
-      if (state.dragMode === 'spin' && state.dragTargetPiece) {
-        // Direct touch spin rotation on the garment!
-        state.dragTargetPiece.isPresentationSpinning = false;
-        state.dragTargetPiece.targetRotationY += deltaX * 0.022;
-        state.dragTargetPiece.rotationVelocityY = deltaX * 0.022;
+      if (state.dragMode === 'rotateGarment' && state.dragTargetPiece) {
+        // Dragging garment moves/rotates it slightly or 360
+        state.dragTargetPiece.is360Spinning = false;
+        const spinDelta = deltaX * 0.018;
+        state.dragTargetPiece.rotationVelocityY = spinDelta;
+        state.dragTargetPiece.targetRotationY += spinDelta;
       } else {
-        // Carousel rack scroll
+        // Sliding the rack horizontally
         const travel = (e.clientX - state.dragStartX) * 0.0075;
         targetOffset = state.dragStartOffset + travel;
       }
@@ -611,7 +540,11 @@ window.addEventListener('pointermove', (e) => {
       const hitPiece = getIntersectedPiece(e);
       if (hitPiece) {
         state.hoveredIndex = hitPiece.index;
-        renderer.domElement.style.cursor = 'grab';
+        if (hitPiece.index === state.selectedIndex) {
+          renderer.domElement.style.cursor = 'grab';
+        } else {
+          renderer.domElement.style.cursor = 'pointer';
+        }
       } else {
         state.hoveredIndex = -1;
         renderer.domElement.style.cursor = 'default';
@@ -620,38 +553,33 @@ window.addEventListener('pointermove', (e) => {
   }
 });
 
+// Pointer Up / Tap Handler
 function finishDrag(e) {
   if (!state.isDragging) return;
   state.isDragging = false;
 
   const totalDist = Math.hypot(e.clientX - state.dragStartX, e.clientY - state.dragStartY);
 
-  if (totalDist < 10) {
-    // TAP / TOUCH ACTION!
+  if (totalDist < 12) {
     if (state.dragTargetPiece) {
       const tappedPiece = state.dragTargetPiece;
-
-      // Center the tapped piece if not already centered
-      if (tappedPiece.index !== state.selectedIndex) {
+      if (tappedPiece.index === state.selectedIndex) {
+        // Tapping active garment gives a gentle slight turn (or opens details)
+        rotateActivePiece(1);
+        return;
+      } else {
+        // Clicking off-center garment centers it
         selectIndex(tappedPiece.index);
+        return;
       }
-
-      // Smooth 360 presentation spin on touch!
-      tappedPiece.triggerPresentationSpin();
-      sound.swivelHanger();
-
-      // Show the Floating 3D Info Card!
-      showFloatingInfoCard(tappedPiece);
-      return;
     } else {
-      // Tap on empty space closes floating card
-      hideFloatingInfoCard();
+      hideDetailSheet();
     }
   }
 
-  if (state.dragMode === 'rack') {
-    // Momentum fling to closest garment
-    const projectedOffset = targetOffset + state.dragVelocity * 220 * 0.0075;
+  // Fling momentum for sliding rack
+  if (state.dragMode === 'rack' || state.dragMode === 'selectOrRack') {
+    const projectedOffset = targetOffset + state.dragVelocity * 180 * 0.0075;
     const nearestIndex = Math.round(-projectedOffset / RACK_SPACING);
     selectIndex(nearestIndex);
   }
@@ -663,7 +591,7 @@ function finishDrag(e) {
 window.addEventListener('pointerup', finishDrag);
 window.addEventListener('pointercancel', finishDrag);
 
-// Mouse Wheel navigation (horizontal scroll across wardrobe)
+// Mouse Wheel Navigation across rack
 window.addEventListener('wheel', (e) => {
   if (state.mode === 'inspect') return;
   if (Math.abs(e.deltaY) > 20 || Math.abs(e.deltaX) > 20) {
@@ -674,64 +602,47 @@ window.addEventListener('wheel', (e) => {
 
 /* ==========================================================================
    DOM Event Listeners
-   ========================================================================= */
+   ========================================================================== */
 
-// Scrubber Click & Jump
-scrubberTrackEl.addEventListener('click', (e) => {
-  const rect = scrubberTrackEl.getBoundingClientRect();
-  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  const targetFilterPos = Math.round(ratio * (state.filteredIndices.length - 1));
-  const newIndex = state.filteredIndices[targetFilterPos];
-  if (newIndex !== undefined) {
-    selectIndex(newIndex);
-  }
+// Stage edge chevrons to glide between garments
+rackPrevBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  selectIndex(state.selectedIndex - 1);
 });
 
-// Category Filter Buttons
-document.querySelectorAll('.filter-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    sound.tapButton();
-    selectCategory(btn.dataset.category);
-  });
+rackNextBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  selectIndex(state.selectedIndex + 1);
 });
 
-// Navigation Buttons
-prevBtn.addEventListener('click', () => {
-  const currPos = state.filteredIndices.indexOf(state.selectedIndex);
-  const prevPos = (currPos - 1 + state.filteredIndices.length) % state.filteredIndices.length;
-  selectIndex(state.filteredIndices[prevPos]);
-  const piece = pieces[state.selectedIndex];
-  if (state.isFloatingCardOpen && piece) {
-    showFloatingInfoCard(piece);
-  }
+viewPieceBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  sound.snapFocus();
+  showDetailSheet();
 });
 
-nextBtn.addEventListener('click', () => {
-  const currPos = state.filteredIndices.indexOf(state.selectedIndex);
-  const nextPos = (currPos + 1) % state.filteredIndices.length;
-  selectIndex(state.filteredIndices[nextPos]);
-  const piece = pieces[state.selectedIndex];
-  if (state.isFloatingCardOpen && piece) {
-    showFloatingInfoCard(piece);
-  }
+sheetCloseBtn.addEventListener('click', hideDetailSheet);
+detailBackdrop.addEventListener('click', hideDetailSheet);
+
+resetBtn.addEventListener('click', () => {
+  selectIndex(4);
+  showToast("RESET TO FACES SHIRT");
 });
 
-inspectBtn.addEventListener('click', enterInspectMode);
-exitInspectBtn.addEventListener('click', exitInspectMode);
-closeInspBtn.addEventListener('click', exitInspectMode);
+document.querySelector('.hanging-sign').addEventListener('click', () => {
+  selectIndex(4);
+});
 
-// Size Chips
-sizeChipsContainer.querySelectorAll('.size-chip').forEach((chip) => {
+sheetSizesEl.querySelectorAll('.size-chip').forEach((chip) => {
   chip.addEventListener('click', () => {
-    sizeChipsContainer.querySelectorAll('.size-chip').forEach((c) => c.classList.remove('active'));
+    sheetSizesEl.querySelectorAll('.size-chip').forEach((c) => c.classList.remove('active'));
     chip.classList.add('active');
     state.selectedSize = chip.dataset.size;
     sound.tapButton();
   });
 });
 
-// Add To Bag CTA
-addToBagBtn.addEventListener('click', () => {
+sheetAddBagBtn.addEventListener('click', () => {
   const item = collection[state.selectedIndex];
   const piece = pieces[state.selectedIndex];
   sound.snapFocus();
@@ -747,6 +658,7 @@ addToBagBtn.addEventListener('click', () => {
       id: item.id,
       name: item.name,
       price: item.price,
+      displayPrice: item.displayPrice,
       colorway: piece.currentColorway.name,
       size: state.selectedSize,
       qty: 1
@@ -754,10 +666,12 @@ addToBagBtn.addEventListener('click', () => {
   }
 
   updateCartUI();
-  showToast(`ADDED "${item.name}" (SIZE ${state.selectedSize}) TO BAG`);
+  showToast(`ADDED "${item.name}" (SIZE ${state.selectedSize}) TO CART`);
 });
 
-// Shopping Bag Drawer Toggle
+sheetInspectBtn.addEventListener('click', enterInspectMode);
+exitInspectBtn.addEventListener('click', exitInspectMode);
+
 bagBtn.addEventListener('click', () => {
   bagDrawer.classList.add('open');
   drawerBackdrop.classList.add('visible');
@@ -773,40 +687,28 @@ drawerBackdrop.addEventListener('click', closeBag);
 
 checkoutBtn.addEventListener('click', () => {
   if (state.cart.length === 0) {
-    showToast('YOUR BAG IS EMPTY');
+    showToast('YOUR CART IS EMPTY');
     return;
   }
   sound.snapFocus();
-  showToast('PROCEEDING TO ATELIER PRIVATE CHECKOUT...');
+  showToast('PROCEEDING TO CHECKOUT...');
 });
 
-// Sound Toggle
 soundBtn.addEventListener('click', () => {
   const isMuted = sound.toggleMute();
   soundBtn.classList.toggle('muted', isMuted);
   showToast(isMuted ? 'AUDIO MUTED' : 'AUDIO ACTIVE');
 });
 
-// Help Modal
-helpBtn.addEventListener('click', () => {
-  helpDialog.showModal();
-  sound.tapButton();
-});
-closeHelpBtn.addEventListener('click', () => helpDialog.close());
-gotItBtn.addEventListener('click', () => helpDialog.close());
-helpDialog.addEventListener('click', (e) => {
-  if (e.target === helpDialog) helpDialog.close();
-});
-
-// Keyboard Navigation
+// Keyboard Navigation: Left/Right arrows rotate the piece ("rotate by arrows")!
 window.addEventListener('keydown', (e) => {
-  if (helpDialog.open) {
-    if (e.key === 'Escape') helpDialog.close();
+  if (bagDrawer.classList.contains('open')) {
+    if (e.key === 'Escape') closeBag();
     return;
   }
 
-  if (bagDrawer.classList.contains('open')) {
-    if (e.key === 'Escape') closeBag();
+  if (detailSheet.classList.contains('visible')) {
+    if (e.key === 'Escape') hideDetailSheet();
     return;
   }
 
@@ -815,22 +717,24 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (state.isFloatingCardOpen && e.key === 'Escape') {
-    hideFloatingInfoCard();
-    return;
-  }
-
   if (e.key === 'ArrowLeft') {
-    prevBtn.click();
+    // Rotate left with arrow key
+    rotateActivePiece(-1);
   } else if (e.key === 'ArrowRight') {
-    nextBtn.click();
+    // Rotate right with arrow key
+    rotateActivePiece(1);
+  } else if (e.key === 'a' || e.key === 'A') {
+    // Rack previous
+    selectIndex(state.selectedIndex - 1);
+  } else if (e.key === 'd' || e.key === 'D') {
+    // Rack next
+    selectIndex(state.selectedIndex + 1);
   } else if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault();
-    enterInspectMode();
+    showDetailSheet();
   }
 });
 
-// Window Resize Handler
 function onResize() {
   const width = container.clientWidth;
   const height = container.clientHeight;
@@ -842,99 +746,11 @@ window.addEventListener('resize', onResize);
 
 /* ==========================================================================
    Animation Loop & Physics
+   - "can move slightly": active piece subtly sways and tilts with mouse parallax
+   - "rotate by arrows": active piece smoothly rotates when arrow buttons are clicked
    ========================================================================== */
 
 const clock = new THREE.Clock();
-const tempVec = new THREE.Vector3();
-
-function updateHotspotsPosition() {
-  if (state.mode !== 'inspect') return;
-  const item = collection[state.selectedIndex];
-  const piece = pieces[state.selectedIndex];
-  if (!item || !item.hotspots || !piece) return;
-
-  const widthHalf = container.clientWidth / 2;
-  const heightHalf = container.clientHeight / 2;
-
-  const pins = hotspotsLayerEl.querySelectorAll('.hotspot-pin');
-
-  item.hotspots.forEach((hs, idx) => {
-    const pin = pins[idx];
-    if (!pin) return;
-
-    // Transform local coordinate to piece world coordinate
-    tempVec.set(hs.x, hs.y, hs.z);
-    piece.garmentGroup.localToWorld(tempVec);
-
-    tempVec.project(camera);
-
-    const x = tempVec.x * widthHalf + widthHalf;
-    const y = -(tempVec.y * heightHalf) + heightHalf;
-
-    if (tempVec.z > 1) {
-      pin.style.display = 'none';
-    } else {
-      pin.style.display = 'flex';
-      pin.style.left = `${x}px`;
-      pin.style.top = `${y}px`;
-    }
-  });
-}
-
-function updateFloatingCardPosition() {
-  if (!state.isFloatingCardOpen || state.mode !== 'carousel') return;
-
-  const piece = pieces[state.selectedIndex];
-  if (!piece) return;
-
-  const width = container.clientWidth;
-  const height = container.clientHeight;
-  const widthHalf = width / 2;
-  const heightHalf = height / 2;
-
-  // Garment chest anchor point in 3D
-  tempVec.set(0, 1.45, 0.15);
-  piece.garmentGroup.localToWorld(tempVec);
-  tempVec.project(camera);
-
-  const anchorX = tempVec.x * widthHalf + widthHalf;
-  const anchorY = -(tempVec.y * heightHalf) + heightHalf;
-
-  // Card positioning
-  let cardX, cardY;
-  if (width < 760) {
-    // Mobile: center card
-    cardX = widthHalf;
-    cardY = height * 0.38;
-  } else {
-    // Desktop: anchor to right or left of piece
-    const isRightSpace = anchorX < width - 360;
-    cardX = isRightSpace ? anchorX + 220 : anchorX - 220;
-    cardY = Math.max(160, Math.min(height - 240, anchorY - 20));
-  }
-
-  floatingCardEl.style.left = `${cardX}px`;
-  floatingCardEl.style.top = `${cardY}px`;
-
-  // Update tether connector line
-  if (width >= 760) {
-    const deltaX = anchorX - cardX;
-    const deltaY = anchorY - cardY;
-    connectorLine.setAttribute('x1', '0');
-    connectorLine.setAttribute('y1', '0');
-    connectorLine.setAttribute('x2', `${deltaX}`);
-    connectorLine.setAttribute('y2', `${deltaY}`);
-    connectorAnchor.setAttribute('cx', `${deltaX}`);
-    connectorAnchor.setAttribute('cy', `${deltaY}`);
-  } else {
-    connectorLine.setAttribute('x1', '0');
-    connectorLine.setAttribute('y1', '0');
-    connectorLine.setAttribute('x2', '0');
-    connectorLine.setAttribute('y2', '0');
-    connectorAnchor.setAttribute('cx', '-9999');
-    connectorAnchor.setAttribute('cy', '-9999');
-  }
-}
 
 function animate() {
   requestAnimationFrame(animate);
@@ -949,7 +765,11 @@ function animate() {
 
   const rackDelta = currentOffset - previousOffset;
 
-  // Update gallery spotlight target to follow active garment
+  // Smooth mouse parallax lerp ("can move slightly")
+  mouseParallaxX += (targetParallaxX - mouseParallaxX) * 0.06;
+  mouseParallaxY += (targetParallaxY - mouseParallaxY) * 0.06;
+
+  // Spotlight smoothly tracks active piece
   const activePiece = pieces[state.selectedIndex];
   if (activePiece) {
     const activeWorldX = activePiece.root.position.x + currentOffset;
@@ -957,78 +777,58 @@ function animate() {
     spotLight.position.x = THREE.MathUtils.lerp(spotLight.position.x, activeWorldX * 0.45, 0.08);
   }
 
-  // Garment Cloth Sway, Swivel Rotation & Interactive Hover
   pieces.forEach((piece, index) => {
     const isSelected = index === state.selectedIndex;
     const isHovered = index === state.hoveredIndex;
 
-    // 1. Natural pendulum cloth sway when rack accelerates/stops
-    piece.swingVelocity += -rackDelta * 0.55;
-    piece.swingVelocity += -piece.swingAngle * 16.0 * dt;
+    // 1. Natural pendulum cloth sway when sliding on rail
+    piece.swingVelocity += -rackDelta * 0.45;
+    piece.swingVelocity += -piece.swingAngle * 14.0 * dt;
     piece.swingVelocity *= Math.pow(0.82, dt * 60);
     piece.swingAngle += piece.swingVelocity * dt;
-    piece.garmentGroup.rotation.z = piece.swingAngle;
 
-    // 2. Swivel Rotation (Touch, Presentation Spin, and Natural Hanging Rack Angle)
-    if (piece.isPresentationSpinning) {
-      piece.spinProgress += dt / 1.4; // 1.4s duration for a smooth 360 showcase
-      if (piece.spinProgress >= 1) {
-        piece.isPresentationSpinning = false;
-        piece.spinProgress = 1;
-        piece.targetRotationY = piece.spinStartAngle + Math.PI * 2;
-      } else {
-        const t = piece.spinProgress;
-        const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        piece.targetRotationY = piece.spinStartAngle + ease * Math.PI * 2;
-      }
-    } else if (state.dragMode === 'spin' && state.dragTargetPiece === piece) {
-      // User is actively dragging this piece to spin it
-      piece.rotationVelocityY *= Math.pow(0.86, dt * 60);
-      piece.targetRotationY += piece.rotationVelocityY * dt * 60;
-    } else {
-      // Natural resting rack orientation like in the reference photo:
-      // Active center piece faces flat forward (0 radians).
-      // Items to the left/right naturally hang turned sideways along the rail (~76 degrees)!
-      let naturalRackAngle = 0;
-      if (state.mode === 'carousel') {
-        if (index > state.selectedIndex) {
-          naturalRackAngle = -1.32; // ~-76 degrees (turned along rail to the right)
-        } else if (index < state.selectedIndex) {
-          naturalRackAngle = 1.32; // ~+76 degrees (turned along rail to the left)
-        } else {
-          naturalRackAngle = 0; // Center piece faces camera flat!
-        }
-      }
-      piece.targetRotationY = naturalRackAngle;
-      piece.rotationVelocityY *= Math.pow(0.86, dt * 60);
+    // 2. Active piece: responds slightly to mouse parallax ("can move slightly")
+    let parallaxY = 0;
+    let parallaxX = 0;
+    let parallaxZ = 0;
+
+    if (isSelected && state.mode === 'carousel') {
+      parallaxY = mouseParallaxX * 0.16; // moves slightly in Y rotation (about 9 degrees)
+      parallaxZ = -mouseParallaxX * 0.035; // moves slightly in Z tilt
+      parallaxX = mouseParallaxY * 0.06; // moves slightly in pitch
+    }
+
+    piece.garmentGroup.rotation.z = piece.swingAngle + parallaxZ;
+    piece.garmentGroup.rotation.x = parallaxX;
+
+    // 3. Arrow Rotation & Drag Rotation Physics
+    if (state.isDragging && state.dragMode === 'rotateGarment' && isSelected) {
+      piece.targetRotationY += piece.rotationVelocityY;
+      piece.rotationVelocityY *= Math.pow(0.88, dt * 60);
+    } else if (!isSelected) {
+      // Off-center pieces always smoothly face forward
+      piece.targetRotationY = 0;
+      piece.rotationVelocityY = 0;
     }
 
     piece.rotationY += (piece.targetRotationY - piece.rotationY) * 0.14;
-    piece.swivelGroup.rotation.y = piece.rotationY;
+    // Combine base rotation + slight parallax movement
+    piece.swivelGroup.rotation.y = piece.rotationY + parallaxY;
 
     if (state.mode === 'carousel') {
-      // Subtle organic breathing motion
-      const breathing = Math.sin(elapsed * 1.3 + index * 0.8) * 0.008;
-      piece.garmentGroup.position.y = breathing + (isHovered ? 0.07 : 0);
+      const breathing = Math.sin(elapsed * 1.3 + index * 0.8) * 0.006;
+      piece.garmentGroup.position.y = breathing + (isHovered ? 0.05 : 0);
 
-      // Scale & Depth modulation for selected item
-      const targetScale = isSelected ? 1.05 : 0.88;
+      const targetScale = isSelected ? 1.05 : 0.90;
       piece.root.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
 
-      // Slight perspective angle towards center
-      const angleToCenter = Math.max(-0.16, Math.min(0.16, (index - state.selectedIndex) * -0.04));
-      piece.root.rotation.y += (angleToCenter - piece.root.rotation.y) * 0.1;
-
-      // Soft visibility culling for distant items
       const distFromCenter = Math.abs(index - state.selectedIndex);
-      piece.root.visible = distFromCenter <= 4;
+      piece.root.visible = distFromCenter <= 5;
     } else {
-      // Inspect Mode: Target piece stays active, others fade out
       if (isSelected) {
         piece.root.scale.lerp(new THREE.Vector3(1.15, 1.15, 1.15), 0.08);
         piece.root.visible = true;
       } else {
-        piece.root.scale.lerp(new THREE.Vector3(0.5, 0.5, 0.5), 0.1);
         piece.root.visible = false;
       }
     }
@@ -1036,18 +836,15 @@ function animate() {
 
   if (state.mode === 'inspect') {
     controls.update();
-    updateHotspotsPosition();
   } else {
-    // Camera gently tracks carousel center
     camera.position.lerp(carouselCamPos, 0.08);
     camera.lookAt(carouselCamLook);
-    updateFloatingCardPosition();
   }
 
   renderer.render(scene, camera);
 }
 
 // Initial bootstrap
-updateCarouselUI();
+updateDockUI();
 updateCartUI();
 animate();
