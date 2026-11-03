@@ -1,47 +1,312 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#eae7e1" />
-    <title>RICK'S CLOSET — Interactive Collection</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="app">
-      <header class="topbar">
-        <span class="topbar-label">INDEPENDENT WARDROBE · 2026</span>
-        <div class="brand" aria-label="Rick's Closet"><span>RICK'S</span><strong>Closet</strong></div>
-        <button class="sound-button" id="info-button" aria-label="About this project" title="About this project">ⓘ</button>
-      </header>
-      <main class="stage" aria-label="Interactive 3D clothing collection">
-        <div id="scene" aria-hidden="true"></div>
-        <div class="stage-caption">THE EVERYDAY ARCHIVE <span>—</span> VOL. 01</div>
-        <div class="drag-hint">DRAG TO EXPLORE <span>↔</span></div>
-        <section class="bottom-ui" aria-live="polite">
-          <div class="counter" id="counter">01 / 09</div>
-          <div class="product-name" id="product-name">Matchday Jersey</div>
-          <div class="product-detail" id="product-detail">Cotton blend · $48</div>
-          <div class="controls">
-            <button class="nav-button" id="prev" aria-label="Previous clothing item">←</button>
-            <button class="view-button" id="view">VIEW PIECE <span>↗</span></button>
-            <button class="nav-button" id="next" aria-label="Next clothing item">→</button>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#121314" />
+  <title>ATELIER 3D — Haute Prêt-à-Porter Digital Archive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body class="mode-carousel">
+  <div id="app">
+    <!-- Top Navigation Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="brand">
+          <span class="brand-monogram">A / 26</span>
+          <div class="brand-text">
+            <span class="brand-title">ATELIER</span>
+            <span class="brand-subtitle">ARCHIVE 01</span>
           </div>
-        </section>
-        <div class="toast" id="toast" role="status"></div>
-      </main>
-      <footer class="footer"><span>CURATED WITH CARE</span><span>BUILT WITH THREE.JS</span></footer>
-      <dialog id="product-dialog" class="product-dialog">
-        <button id="close-dialog" class="dialog-close" aria-label="Close">×</button>
-        <span class="dialog-kicker">THE EVERYDAY ARCHIVE</span>
-        <h2 id="dialog-name"></h2>
-        <p id="dialog-description"></p>
-        <span id="dialog-price" class="dialog-price"></span>
-        <button class="dialog-cta" id="dialog-cta">BACK TO COLLECTION ↗</button>
-      </dialog>
-    </div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+        </div>
+        <span class="edition-badge">EDITION 2026 // SS</span>
+      </div>
+
+        <!-- Hanging Boutique Sign (matching reference) -->
+        <div class="hanging-sign" aria-label="Rick's Closet">
+          <div class="sign-string sign-string-left"></div>
+          <div class="sign-string sign-string-right"></div>
+          <div class="sign-board">
+            <span class="sign-sub">RICK'S</span>
+            <strong class="sign-main">Closet</strong>
+          </div>
+        </div>
+
+      <!-- Category Filters -->
+      <nav class="category-nav" aria-label="Garment categories">
+        <button class="filter-btn active" data-category="all">ALL PIECES <span class="count">8</span></button>
+        <button class="filter-btn" data-category="tops">TOPS <span class="count">3</span></button>
+        <button class="filter-btn" data-category="outerwear">OUTERWEAR <span class="count">3</span></button>
+        <button class="filter-btn" data-category="bottoms">BOTTOMS <span class="count">2</span></button>
+      </nav>
+
+      <!-- Right Utilities -->
+      <div class="topbar-right">
+        <button class="icon-btn" id="sound-btn" aria-label="Toggle sound" title="Toggle Sound">
+          <svg class="sound-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path class="sound-wave wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path class="sound-wave wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+        </button>
+        <button class="icon-btn" id="help-btn" aria-label="Navigation help" title="Keyboard & Controls">?</button>
+        <button class="bag-btn" id="bag-btn" aria-label="Shopping Bag">
+          <span class="bag-label">BAG</span>
+          <span class="bag-count" id="bag-count">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main 3D Experience Canvas -->
+    <main class="viewport-stage" id="stage">
+      <div id="webgl-container" aria-label="Interactive 3D clothing display"></div>
+
+      <!-- 3D Hotspot Container (Active during inspect mode) -->
+      <div id="hotspots-layer" class="hotspots-layer" aria-hidden="true"></div>
+
+      <!-- Overhead Interaction Hints -->
+      <div class="stage-overlay">
+        <div class="editorial-stamp">
+          <span class="stamp-line">STUDIO ARCHIVE</span>
+          <span class="stamp-desc" id="stamp-category">ALL PIECES</span>
+        </div>
+
+        <div class="interaction-hint" id="interaction-hint">
+          <span class="hint-text">DRAG OR USE ARROW KEYS TO BROWSE</span>
+          <span class="hint-shortcut">[ &larr; / &rarr; ]</span>
+          <span class="hint-text">TOUCH PIECE TO SPIN 360&deg; &middot; DRAG STAGE TO BROWSE</span>
+          <span class="hint-shortcut">[ &larr; / &rarr; / DRAG ]</span>
+        </div>
+      </div>
+
+      <!-- Floating 3D Info Card (Activated on touching / clicking a piece) -->
+      <div class="floating-info-card" id="floating-info-card" aria-hidden="true">
+        <svg class="card-connector-svg" id="card-connector-svg">
+          <line id="connector-line" x1="0" y1="0" x2="0" y2="0" />
+          <circle id="connector-anchor" cx="0" cy="0" r="4.5" />
+        </svg>
+        <div class="card-glass-panel">
+          <div class="card-top-row">
+            <span class="card-badge" id="card-badge">TOPS // 340 GSM</span>
+            <button class="card-close-btn" id="card-close-btn" aria-label="Close card">&times;</button>
+          </div>
+          <h2 class="card-title" id="card-title">Atelier Heavyweight Tee</h2>
+          <div class="card-sub-row">
+            <span class="card-price" id="card-price">$68.00</span>
+            <span class="card-origin" id="card-origin">PORTO, PORTUGAL</span>
+          </div>
+          <p class="card-desc" id="card-desc">Sculpted boxy silhouette engineered with dense organic cotton jersey.</p>
+          <div class="card-swatches-section">
+            <div class="card-section-label">
+              <span>COLORWAY</span>
+              <strong id="card-active-color">Washed Charcoal</strong>
+            </div>
+            <div class="card-swatches-row" id="card-swatches-row"></div>
+          </div>
+          <div class="card-actions-row">
+            <button class="card-btn secondary-btn" id="card-spin-btn" title="Rotate 360 degrees">
+              <span class="spin-icon">&#8635;</span> SPIN 360&deg;
+            </button>
+            <button class="card-btn primary-btn" id="card-inspect-btn">
+              STUDIO 3D &nearr;
+            </button>
+          </div>
+          <button class="card-btn bag-cta-btn" id="card-add-bag-btn">
+            ADD TO BAG &middot; <span id="card-btn-price">$68</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Floating Back to Rack Button (Inspector Mode) -->
+      <button class="exit-inspect-btn" id="exit-inspect-btn" aria-label="Return to carousel view">
+        <span class="arrow">&larr;</span>
+        <span>RETURN TO RACK</span>
+        <span class="key-badge">ESC</span>
+      </button>
+    </main>
+
+    <!-- Bottom Floating Carousel Dock -->
+    <footer class="bottom-dock" id="bottom-dock">
+      <div class="dock-card">
+        <!-- Timeline scrubber line -->
+        <div class="scrubber-track" id="scrubber-track" title="Click to jump">
+          <div class="scrubber-fill" id="scrubber-fill"></div>
+          <div class="scrubber-handle" id="scrubber-handle"></div>
+        </div>
+
+        <div class="dock-content">
+          <!-- Left: Counter & Category -->
+          <div class="item-meta">
+            <span class="item-index" id="item-index">01 / 08</span>
+            <span class="item-badge" id="item-badge">TOPS</span>
+          </div>
+
+          <!-- Center: Title & Specs -->
+          <div class="item-info">
+            <h1 class="item-title" id="item-title">Atelier Heavyweight Tee</h1>
+            <p class="item-tagline" id="item-tagline">Sculpted Boxy Silhouette · 340 GSM</p>
+            <div class="swatches-preview" id="swatches-preview"></div>
+          </div>
+
+          <!-- Right: Actions & Navigation -->
+          <div class="dock-actions">
+            <span class="item-price" id="item-price">$68</span>
+            <div class="nav-cluster">
+              <button class="dock-nav-btn" id="prev-btn" aria-label="Previous garment">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <button class="primary-btn inspect-btn" id="inspect-btn">
+                <span>INSPECT 3D</span>
+                <span class="btn-arrow">↗</span>
+              </button>
+              <button class="dock-nav-btn" id="next-btn" aria-label="Next garment">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- 360° Inspector Floating Side Panel -->
+    <aside class="inspector-panel" id="inspector-panel" aria-label="Garment specifications">
+      <div class="inspector-header">
+        <span class="inspector-kicker" id="insp-kicker">PORTUGAL · 340 GSM</span>
+        <button class="close-insp-btn" id="close-insp-btn" aria-label="Close inspector">&times;</button>
+      </div>
+
+      <h2 class="insp-title" id="insp-title">Atelier Heavyweight Tee</h2>
+      <div class="insp-price-row">
+        <span class="insp-price" id="insp-price">$68.00</span>
+        <span class="insp-stock">IN STOCK</span>
+      </div>
+
+      <p class="insp-description" id="insp-description"></p>
+
+      <!-- Colorway Selector -->
+      <div class="insp-section">
+        <div class="section-label">
+          <span>COLORWAY</span>
+          <strong id="active-colorway-name">Washed Charcoal</strong>
+        </div>
+        <div class="colorway-list" id="colorway-list"></div>
+      </div>
+
+      <!-- Size Selector -->
+      <div class="insp-section">
+        <div class="section-label">
+          <span>SELECT SIZE</span>
+          <a href="#" class="size-guide-link" id="size-guide-link">FIT GUIDE</a>
+        </div>
+        <div class="size-chips" id="size-chips">
+          <button class="size-chip" data-size="S">S</button>
+          <button class="size-chip active" data-size="M">M</button>
+          <button class="size-chip" data-size="L">L</button>
+          <button class="size-chip" data-size="XL">XL</button>
+        </div>
+      </div>
+
+      <!-- Specs Grid -->
+      <div class="insp-specs-grid">
+        <div class="spec-cell">
+          <span class="spec-label">FABRIC</span>
+          <span class="spec-value" id="insp-fabric">100% Combed Cotton</span>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-label">WEIGHT</span>
+          <span class="spec-value" id="insp-weight">340 GSM</span>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-label">CUT</span>
+          <span class="spec-value" id="insp-fit">Relaxed Boxy Fit</span>
+        </div>
+        <div class="spec-cell">
+          <span class="spec-label">PROVENANCE</span>
+          <span class="spec-value" id="insp-origin">Porto, Portugal</span>
+        </div>
+      </div>
+
+      <!-- Add to Bag CTA -->
+      <div class="insp-cta-block">
+        <button class="primary-btn add-to-bag-btn" id="add-to-bag-btn">
+          <span>ADD TO BAG</span>
+          <span class="btn-divider">|</span>
+          <span id="cta-price">$68</span>
+        </button>
+        <div class="insp-subnote">COMPLIMENTARY WORLDWIDE EXPRESS DELIVERY OVER $200</div>
+      </div>
+    </aside>
+
+    <!-- Shopping Bag Drawer -->
+    <aside class="bag-drawer" id="bag-drawer" aria-label="Shopping Bag Drawer">
+      <div class="drawer-header">
+        <h3>YOUR SELECTION (<span id="cart-item-count">0</span>)</h3>
+        <button class="close-drawer-btn" id="close-bag-btn" aria-label="Close bag">&times;</button>
+      </div>
+      <div class="cart-items" id="cart-items">
+        <div class="empty-cart-msg">Your collection bag is empty.</div>
+      </div>
+      <div class="drawer-footer">
+        <div class="cart-total-row">
+          <span>SUBTOTAL</span>
+          <strong id="cart-subtotal">$0.00</strong>
+        </div>
+        <button class="primary-btn checkout-btn" id="checkout-btn">PROCEED TO CHECKOUT &nearr;</button>
+      </div>
+    </aside>
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+    <!-- Controls & Help Modal -->
+    <dialog class="help-dialog" id="help-dialog">
+      <div class="dialog-box">
+        <button class="dialog-close" id="close-help-btn" aria-label="Close">&times;</button>
+        <span class="dialog-tag">ATELIER USER GUIDE</span>
+        <h2>Digital Archive Navigation</h2>
+        <div class="controls-guide-grid">
+          <div class="guide-item">
+            <span class="guide-key">DRAG / SWIPE</span>
+            <p>Glide horizontally across the wardrobe rail</p>
+          </div>
+          <div class="guide-item">
+            <span class="guide-key">&larr; / &rarr; ARROWS</span>
+            <p>Jump directly to previous or next garment</p>
+          </div>
+          <div class="guide-item">
+            <span class="guide-key">SPACE / ENTER</span>
+            <p>Open 360&deg; product inspector view</p>
+          </div>
+          <div class="guide-item">
+            <span class="guide-key">360&deg; ORBIT</span>
+            <p>Drag in inspector mode to examine fabric weave and seams</p>
+          </div>
+          <div class="guide-item">
+            <span class="guide-key">HOTSPOT PINS</span>
+            <p>Click floating pins to inspect tailoring specifications</p>
+          </div>
+          <div class="guide-item">
+            <span class="guide-key">ESC</span>
+            <p>Exit 3D inspection and return to the carousel</p>
+          </div>
+        </div>
+        <button class="primary-btn dialog-btn" id="got-it-btn">CONTINUE EXPLORING</button>
+      </div>
+    </dialog>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>
