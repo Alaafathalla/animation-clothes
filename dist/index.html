@@ -11,7 +11,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap"
     rel="stylesheet" />
-  <script type="module" crossorigin src="/assets/index-DHMjqsH3.js"></script>
+  <script type="module" crossorigin src="/assets/index-DlqiscuZ.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-Dn1b2h6a.css">
 </head>
 
@@ -22,7 +22,8 @@
       <!-- Left: Reset Button -->
       <div class="topbar-left">
         <button class="icon-btn" id="reset-btn" aria-label="Reset rack" title="Reset View">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+            stroke-linejoin="round">
             <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8"></path>
             <polyline points="21 3 21 8 16 8"></polyline>
           </svg>
@@ -64,8 +65,10 @@
       <div id="webgl-container" aria-label="Interactive 3D clothing display"></div>
 
       <!-- Subtle Side Stage Chevrons -->
-      <button class="edge-nav-btn edge-prev-btn" id="rack-prev-btn" aria-label="Previous garment in rack" title="Previous Garment">&lsaquo;</button>
-      <button class="edge-nav-btn edge-next-btn" id="rack-next-btn" aria-label="Next garment in rack" title="Next Garment">&rsaquo;</button>
+      <button class="edge-nav-btn edge-prev-btn" id="rack-prev-btn" aria-label="Previous garment in rack"
+        title="Previous Garment">&lsaquo;</button>
+      <button class="edge-nav-btn edge-next-btn" id="rack-next-btn" aria-label="Next garment in rack"
+        title="Next Garment">&rsaquo;</button>
 
       <!-- Return to Closet Button (when in Orbit Mode) -->
       <button class="exit-inspect-btn" id="exit-inspect-btn" aria-label="Return to closet view">
@@ -78,9 +81,11 @@
       <div class="boutique-dock" id="boutique-dock">
         <h2 class="dock-title" id="dock-item-title">Faces Shirt</h2>
         <div class="dock-price-row">
-          <button class="arrow-nav-btn prev-arrow-btn" id="rotate-left-btn" aria-label="Rotate garment left" title="Rotate Left">&#8592;</button>
+          <button class="arrow-nav-btn prev-arrow-btn" id="rotate-left-btn" aria-label="Rotate garment left"
+            title="Rotate Left">&#8592;</button>
           <span class="dock-price" id="dock-item-price">₦115,000</span>
-          <button class="arrow-nav-btn next-arrow-btn" id="rotate-right-btn" aria-label="Rotate garment right" title="Rotate Right">&#8594;</button>
+          <button class="arrow-nav-btn next-arrow-btn" id="rotate-right-btn" aria-label="Rotate garment right"
+            title="Rotate Right">&#8594;</button>
         </div>
         <button class="view-pill-btn" id="view-piece-btn">View</button>
       </div>
@@ -115,84 +120,84 @@
 
           <p class="sheet-desc" id="sheet-desc"></p>
 
-          <!-- Colorway Swatches: Clicking updates the product image and 3D garment! -->
-          <div class="sheet-section">
-            <div class="sheet-section-label">
-              <span>COLORWAY</span>
-              <strong id="sheet-color-name">Pitch Black</strong>
-            </div>
-            <div class="sheet-swatches" id="sheet-swatches"></div>
-          </div>
+              <!-- Colorway Swatches: Clicking updates the product image and 3D garment! -->
+              <div class="sheet-section">
+                <div class="sheet-section-label">
+                  <span>COLORWAY</span>
+                  <strong id="sheet-color-name">Pitch Black</strong>
+                </div>
+                <div class="sheet-swatches" id="sheet-swatches"></div>
+              </div>
 
-          <!-- Size Selector -->
-          <div class="sheet-section">
-            <div class="sheet-section-label">
-              <span>SELECT SIZE</span>
-              <span class="size-hint">TRUE TO SIZE</span>
-            </div>
-            <div class="sheet-sizes" id="sheet-sizes">
-              <button class="size-chip" data-size="S">S</button>
-              <button class="size-chip active" data-size="M">M</button>
-              <button class="size-chip" data-size="L">L</button>
-              <button class="size-chip" data-size="XL">XL</button>
-            </div>
-          </div>
+              <!-- Size Selector -->
+              <div class="sheet-section">
+                <div class="sheet-section-label">
+                  <span>SELECT SIZE</span>
+                  <span class="size-hint">TRUE TO SIZE</span>
+                </div>
+                <div class="sheet-sizes" id="sheet-sizes">
+                  <button class="size-chip" data-size="S">S</button>
+                  <button class="size-chip active" data-size="M">M</button>
+                  <button class="size-chip" data-size="L">L</button>
+                  <button class="size-chip" data-size="XL">XL</button>
+                </div>
+              </div>
 
-          <!-- Fabric Specs Grid -->
-          <div class="sheet-specs-grid">
-            <div class="spec-cell">
-              <span class="spec-label">FABRIC</span>
-              <span class="spec-value" id="sheet-fabric">100% Breathable Viscose</span>
-            </div>
-            <div class="spec-cell">
-              <span class="spec-label">WEIGHT</span>
-              <span class="spec-value" id="sheet-weight">210 GSM</span>
-            </div>
-            <div class="spec-cell">
-              <span class="spec-label">FIT</span>
-              <span class="spec-value" id="sheet-fit">Relaxed Fluid Fit</span>
-            </div>
-            <div class="spec-cell">
-              <span class="spec-label">ORIGIN</span>
-              <span class="spec-value" id="sheet-origin">Porto, Portugal</span>
-            </div>
-          </div>
+              <!-- Fabric Specs Grid -->
+              <div class="sheet-specs-grid">
+                <div class="spec-cell">
+                  <span class="spec-label">FABRIC</span>
+                  <span class="spec-value" id="sheet-fabric">100% Breathable Viscose</span>
+                </div>
+                <div class="spec-cell">
+                  <span class="spec-label">WEIGHT</span>
+                  <span class="spec-value" id="sheet-weight">210 GSM</span>
+                </div>
+                <div class="spec-cell">
+                  <span class="spec-label">FIT</span>
+                  <span class="spec-value" id="sheet-fit">Relaxed Fluid Fit</span>
+                </div>
+                <div class="spec-cell">
+                  <span class="spec-label">ORIGIN</span>
+                  <span class="spec-value" id="sheet-origin">Porto, Portugal</span>
+                </div>
+              </div>
 
-          <!-- Actions -->
-          <div class="sheet-actions">
-            <button class="sheet-cta-btn add-to-bag-btn" id="sheet-add-bag-btn">
-              ADD TO CART · <span id="sheet-btn-price">₦115,000</span>
-            </button>
-            <button class="sheet-inspect-btn" id="sheet-inspect-btn">
-              ORBIT CAMERA 360° &nearr;
-            </button>
+              <!-- Actions -->
+              <div class="sheet-actions">
+                <button class="sheet-cta-btn add-to-bag-btn" id="sheet-add-bag-btn">
+                  ADD TO CART · <span id="sheet-btn-price">₦115,000</span>
+                </button>
+                <button class="sheet-inspect-btn" id="sheet-inspect-btn">
+                  ORBIT CAMERA 360° &nearr;
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Shopping Cart Drawer -->
-    <aside class="bag-drawer" id="bag-drawer" aria-label="Shopping Cart Drawer">
-      <div class="drawer-header">
-        <h3>YOUR CART (<span id="cart-item-count">0</span>)</h3>
-        <button class="close-drawer-btn" id="close-bag-btn" aria-label="Close cart">&times;</button>
-      </div>
-      <div class="cart-items" id="cart-items">
-        <div class="empty-cart-msg">Your shopping cart is empty.</div>
-      </div>
-      <div class="drawer-footer">
-        <div class="cart-total-row">
-          <span>SUBTOTAL</span>
-          <strong id="cart-subtotal">₦0</strong>
-        </div>
-        <button class="checkout-btn" id="checkout-btn">PROCEED TO CHECKOUT</button>
-      </div>
-    </aside>
-    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+        <!-- Shopping Cart Drawer -->
+        <aside class="bag-drawer" id="bag-drawer" aria-label="Shopping Cart Drawer">
+          <div class="drawer-header">
+            <h3>YOUR CART (<span id="cart-item-count">0</span>)</h3>
+            <button class="close-drawer-btn" id="close-bag-btn" aria-label="Close cart">&times;</button>
+          </div>
+          <div class="cart-items" id="cart-items">
+            <div class="empty-cart-msg">Your shopping cart is empty.</div>
+          </div>
+          <div class="drawer-footer">
+            <div class="cart-total-row">
+              <span>SUBTOTAL</span>
+              <strong id="cart-subtotal">₦0</strong>
+            </div>
+            <button class="checkout-btn" id="checkout-btn">PROCEED TO CHECKOUT</button>
+          </div>
+        </aside>
+        <div class="drawer-backdrop" id="drawer-backdrop"></div>
 
-    <!-- Toast Notification -->
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  </div>
+        <!-- Toast Notification -->
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </div>
 
 </body>
 
