@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createWoodHangerTexture, createGarmentSprite } from './textures.js';
+import { createWoodHangerTexture, createGarmentSprite, createGarmentBackSprite } from './textures.js';
 
 /* ==========================================================================
    Shared Hardware Materials  (reused across all hangers)
@@ -136,33 +136,91 @@ const SPRITE_CONFIG = {
 };
 
 function buildGarmentSpriteMesh(item, colorway) {
-  const cfg    = SPRITE_CONFIG[item.type] || SPRITE_CONFIG['tee'];
-  const canvas = createGarmentSprite(item, colorway, cfg);
+  const cfg = SPRITE_CONFIG[item.type] || SPRITE_CONFIG['tee'];
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace       = THREE.SRGBColorSpace;
-  tex.generateMipmaps  = true;
-  tex.minFilter        = THREE.LinearMipmapLinearFilter;
-  tex.magFilter        = THREE.LinearFilter;
-  tex.anisotropy       = 8;
+  // ── Front texture ───────────────────────────────────────────────────────
+  const frontCanvas = createGarmentSprite(item, colorway, cfg);
+  const frontTex = new THREE.CanvasTexture(frontCanvas);
+  frontTex.colorSpace      = THREE.SRGBColorSpace;
+  frontTex.generateMipmaps = true;
+  frontTex.minFilter       = THREE.LinearMipmapLinearFilter;
+  frontTex.magFilter       = THREE.LinearFilter;
+  frontTex.anisotropy      = 8;
 
-  const mat = new THREE.MeshBasicMaterial({
-    map: tex,
+  const frontMat = new THREE.MeshBasicMaterial({
+    map: frontTex,
     transparent: true,
     alphaTest: 0.02,
     side: THREE.FrontSide,
     depthWrite: false,
   });
 
-  const geo  = new THREE.PlaneGeometry(cfg.w, cfg.h, 1, 1);
-  const mesh = new THREE.Mesh(geo, mat);
+  // ── Back texture ────────────────────────────────────────────────────────
+  const backCanvas = createGarmentBackSprite(item, colorway, cfg);
+  const backTex = new THREE.CanvasTexture(backCanvas);
+  backTex.colorSpace      = THREE.SRGBColorSpace;
+  backTex.generateMipmaps = true;
+  backTex.minFilter       = THREE.LinearMipmapLinearFilter;
+  backTex.magFilter       = THREE.LinearFilter;
+  backTex.anisotropy      = 8;
 
-  // Position: center X=0, plane center Y = topY - h/2
-  mesh.position.set(0, cfg.topY - cfg.h * 0.5, cfg.z);
-  mesh.castShadow    = false;
-  mesh.receiveShadow = false;
+  const backMat = new THREE.MeshBasicMaterial({
+    map: backTex,
+    transparent: true,
+    alphaTest: 0.02,
+    side: THREE.FrontSide,   // back plane is rotated 180° — FrontSide faces camera when garment is reversed
+    depthWrite: false,
+  });
 
-  return { mesh, mat, tex, cfg };
+  // Subdivided fabric panels with a bowed chest, naturally tapered sides and
+  // rippling hems. Unlike a billboard, these surfaces remain volumetric at angles.
+  const centerY = cfg.topY - cfg.h * 0.5;
+  const columns = 32;
+  const rows = 42;
+  const createPanel = (back = false) => {
+    const geometry = new THREE.PlaneGeometry(cfg.w, cfg.h, columns, rows);
+    const mesh = new THREE.Mesh(geometry, back ? backMat : frontMat);
+    mesh.position.y = centerY;
+    mesh.material.side = THREE.DoubleSide;
+    mesh.castShadow = true;
+    mesh.receiveShadow = false;
+    if (back) mesh.rotation.y = Math.PI;
+    return mesh;
+  };
+  const frontMesh = createPanel();
+  const backMesh = createPanel(true);
+
+  // Fabric-profile displacement in local coordinates. Front and reverse both
+  // bulge outward, with progressively looser fabric towards the hem.
+  const updatePanel = (mesh, time, wind = 1, phase = 0) => {
+    const pos = mesh.geometry.attributes.position;
+    const uv = mesh.geometry.attributes.uv;
+    for (let i = 0; i < pos.count; i += 1) {
+      const u = uv.getX(i);
+      const v = uv.getY(i);
+      const x = (u - 0.5) * 2;
+      const down = 1 - v;
+      const torso = Math.max(0, 1 - Math.pow(Math.abs(x), 1.75));
+      const chest = Math.sin(Math.PI * v) * torso * (item.type === 'jacket' ? 0.20 : 0.12);
+      const fabricFold = Math.sin(x * 10.5 + v * 4.7 + phase) * 0.024 * (0.2 + down);
+      const hemWave = Math.sin(time * 1.35 + x * 4.0 + phase) * 0.036 * down * down * wind;
+      const breeze = Math.sin(time * 0.94 + v * 5.3 + phase + x * 2) * 0.012 * down * wind;
+      pos.setXYZ(i,
+        (u - 0.5) * cfg.w + (hemWave + breeze) * down * 0.5,
+        (v - 0.5) * cfg.h + Math.sin(x * 6.1 + time * 1.12 + phase) * 0.022 * down * down * wind,
+        0.065 + chest + fabricFold + hemWave + breeze
+      );
+    }
+    pos.needsUpdate = true;
+    mesh.geometry.computeVertexNormals();
+  };
+  const animateFabric = (time, wind = 1) => {
+    updatePanel(frontMesh, time, wind, 0);
+    updatePanel(backMesh, time, wind, 1.3);
+  };
+  animateFabric(0, 0);
+
+  return { frontMesh, frontMat, frontTex, backMesh, backMat, backTex, cfg, animateFabric };
 }
 
 /* ==========================================================================
@@ -182,17 +240,21 @@ export function createGarmentPiece(item, index) {
 
   // ── 1. 3-D Hanger ──────────────────────────────────────────────────────
   const hanger = createHanger(isPants);
+  hanger.scale.setScalar(0.74);
+  hanger.position.y = 0.56;
+  hanger.position.z = -0.12;
   swivelGroup.add(hanger);
 
   // ── 2. Garment Sprite Plane ────────────────────────────────────────────
   const initialColorway = item.colorways[0];
-  const { mesh: spriteMesh, mat: spriteMat, tex: spriteTex, cfg } =
+  const { frontMesh, frontMat, frontTex, backMesh, backMat, backTex, cfg, animateFabric } =
     buildGarmentSpriteMesh(item, initialColorway);
 
-  // Wrap the sprite so garmentGroup is traversable (raycaster needs children)
+  // Wrap both planes so garmentGroup is traversable (raycaster needs children)
   const garmentGroup = new THREE.Group();
   garmentGroup.name = 'garment_body';
-  garmentGroup.add(spriteMesh);
+  garmentGroup.add(frontMesh);
+  garmentGroup.add(backMesh);
   swivelGroup.add(garmentGroup);
 
   // ── 3. Soft contact shadow on the floor ───────────────────────────────
@@ -229,9 +291,10 @@ export function createGarmentPiece(item, index) {
     root,
     swivelGroup,
     garmentGroup,
-    material: spriteMat,          // kept for API compatibility
+    material: frontMat,           // kept for API compatibility
     hanger,
     currentColorway: initialColorway,
+    animateFabric,
 
     // Physics springs used by the animation loop
     swingAngle: 0,
@@ -246,9 +309,12 @@ export function createGarmentPiece(item, index) {
     /** Swap texture when user changes colorway */
     updateColorway(newColorway) {
       this.currentColorway = newColorway;
-      const newCanvas = createGarmentSprite(item, newColorway, cfg);
-      spriteTex.image = newCanvas;
-      spriteTex.needsUpdate = true;
+      const newFront = createGarmentSprite(item, newColorway, cfg);
+      frontTex.image = newFront;
+      frontTex.needsUpdate = true;
+      const newBack = createGarmentBackSprite(item, newColorway, cfg);
+      backTex.image = newBack;
+      backTex.needsUpdate = true;
     },
 
     trigger360Spin() {

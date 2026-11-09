@@ -893,3 +893,12 @@ body.mode-inspect .boutique-dock {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+/* Editorial showroom details */
+.studio-caption { position:absolute; top:25%; left:5%; z-index:3; pointer-events:none; display:flex; flex-direction:column; gap:11px; font-family:'Plus Jakarta Sans',sans-serif; font-size:10px; letter-spacing:.31em; font-weight:700; color:#746e64; writing-mode:vertical-rl; }
+.studio-caption-line { display:block; width:1px; height:52px; background:#b9afa0; margin-bottom:6px; }
+.studio-caption-issue { font-size:8px; font-weight:500; letter-spacing:.18em; opacity:.65; }
+.cinematic-btn { position:absolute; z-index:7; bottom:37px; left:32px; border:1px solid rgba(71,63,54,.22); border-radius:40px; padding:13px 20px; background:rgba(255,252,245,.72); backdrop-filter:blur(18px); color:#34332f; font:700 10px 'Plus Jakarta Sans',sans-serif; letter-spacing:.16em; cursor:pointer; transition:transform .3s,background .3s,box-shadow .3s; box-shadow:0 7px 30px #38302310; }
+.cinematic-btn:hover { transform:translateY(-3px); background:#fffaf2; box-shadow:0 9px 35px #38302322; }
+.cinematic-btn.is-playing { background:#292c2a; color:#f4eee4; }
+@media(max-width:700px) { .studio-caption { display:none; } .cinematic-btn { bottom:18px; left:12px; padding:11px 14px; font-size:9px; } }
+@media(prefers-reduced-motion:reduce) { .cinematic-btn { transition:none; } }

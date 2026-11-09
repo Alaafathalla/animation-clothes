@@ -953,6 +953,407 @@ export function createGarmentSprite(item, colorway, cfg) {
   return canvas;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   createGarmentBackSprite
+   ─────────────────────────────────────────────────────────────────────────
+   Draws the BACK view of the garment — what you see when rotated 180°.
+   Keeps the same silhouette shape but draws:
+     • Back neck binding / back yoke seam
+     • Centre back seam
+     • Back shoulder seams
+     • Garment care tag at inside back neck
+     • Simplified shading (side shadows same as front)
+     • Back-specific details per type
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export function createGarmentBackSprite(item, colorway, cfg) {
+  const key = `back_${item.id}_${colorway.name}`;
+  if (spriteCache.has(key)) return spriteCache.get(key);
+
+  const W = Math.round(cfg.w * PPU);
+  const H = Math.round(cfg.h * PPU);
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const hex = colorway.hex;
+  const acc = colorway.accent;
+
+  // ── Helper: draw the back silhouette clipped region filled + shaded ───
+  function drawBackBody(clipFn) {
+    ctx.save();
+    clipFn();
+    ctx.fillStyle = hex;
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    // fabric texture
+    drawFabricTexture(ctx, W, H, hex,
+      item.type === 'polo' ? 'waffle' :
+      item.type === 'jacket' || item.type === 'trousers' ? 'twill' : 'knit');
+    drawSideShading(ctx, W, H, hex);
+    drawFoldShading(ctx, W, H, hex, 4, 0.12);
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // ── Shared back-of-neck tag ────────────────────────────────────────────
+  function drawNeckTag(cx, ty) {
+    ctx.save();
+    ctx.fillStyle = '#f5f0e8';
+    ctx.fillRect(cx - W*0.040, ty, W*0.080, H*0.045);
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    ctx.lineWidth   = W*0.002;
+    ctx.strokeRect(cx - W*0.040, ty, W*0.080, H*0.045);
+    ctx.font        = `500 ${W*0.016}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillStyle   = '#2a2420';
+    ctx.textAlign   = 'center';
+    ctx.fillText("RICK'S", cx, ty + H*0.018);
+    ctx.font        = `400 ${W*0.011}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillStyle   = '#6b5a4e';
+    ctx.fillText(item.origin || 'Portugal', cx, ty + H*0.034);
+    ctx.restore();
+  }
+
+  if (item.type === 'trousers') {
+    // ── TROUSERS BACK ─────────────────────────────────────────────────────
+    const isBlack = item.id === 'black-trousers-01';
+
+    // Waistband back
+    ctx.fillStyle = shiftColor(hex, -8);
+    ctx.fillRect(W*0.08, H*0.01, W*0.84, H*0.072);
+    drawStitch(ctx, W*0.08, H*0.078, W*0.92, H*0.078, hexAlpha(acc,0.30), 1.5);
+    [0.22, 0.50, 0.78].forEach(lx => {
+      ctx.fillStyle = shiftColor(hex, -14);
+      ctx.fillRect(W*lx - W*0.013, H*0.005, W*0.026, H*0.065);
+    });
+
+    // Back pockets — two welt pockets
+    ctx.strokeStyle = hexAlpha(acc, 0.32);
+    ctx.lineWidth   = W*0.005;
+    ctx.beginPath();
+    ctx.moveTo(W*0.16, H*0.24); ctx.lineTo(W*0.40, H*0.24);
+    ctx.moveTo(W*0.60, H*0.24); ctx.lineTo(W*0.84, H*0.24);
+    ctx.stroke();
+    drawStitch(ctx, W*0.16, H*0.238, W*0.40, H*0.238, hexAlpha(acc,0.28), 1.2);
+    drawStitch(ctx, W*0.60, H*0.238, W*0.84, H*0.238, hexAlpha(acc,0.28), 1.2);
+
+    // LEFT LEG BACK
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W*0.08, H*0.08);
+    ctx.lineTo(W*0.42, H*0.08);
+    ctx.quadraticCurveTo(W*0.44, H*0.22, W*0.45, H*0.32);
+    ctx.lineTo(W*0.43, H*0.98);
+    ctx.lineTo(W*0.08, H*0.98);
+    ctx.closePath();
+    drawBackBody(() => {
+      ctx.beginPath();
+      ctx.moveTo(W*0.08, H*0.08);
+      ctx.lineTo(W*0.42, H*0.08);
+      ctx.quadraticCurveTo(W*0.44, H*0.22, W*0.45, H*0.32);
+      ctx.lineTo(W*0.43, H*0.98);
+      ctx.lineTo(W*0.08, H*0.98);
+      ctx.closePath();
+    });
+    // back crease (slightly less prominent than front)
+    ctx.strokeStyle = isBlack ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = W*0.004;
+    ctx.beginPath();
+    ctx.moveTo(W*0.25, H*0.10); ctx.lineTo(W*0.26, H*0.97);
+    ctx.stroke();
+    ctx.fillStyle = shiftColor(hex, -10);
+    ctx.fillRect(W*0.08, H*0.94, W*0.35, H*0.04);
+    drawStitch(ctx, W*0.08, H*0.940, W*0.43, H*0.940, hexAlpha(acc,0.32), 1.5);
+    ctx.restore();
+
+    // RIGHT LEG BACK
+    ctx.save();
+    drawBackBody(() => {
+      ctx.beginPath();
+      ctx.moveTo(W*0.58, H*0.08);
+      ctx.quadraticCurveTo(W*0.56, H*0.22, W*0.55, H*0.32);
+      ctx.lineTo(W*0.57, H*0.98);
+      ctx.lineTo(W*0.92, H*0.98);
+      ctx.quadraticCurveTo(W*0.93, H*0.70, W*0.92, H*0.08);
+      ctx.closePath();
+    });
+    ctx.strokeStyle = isBlack ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = W*0.004;
+    ctx.beginPath();
+    ctx.moveTo(W*0.75, H*0.10); ctx.lineTo(W*0.74, H*0.97);
+    ctx.stroke();
+    ctx.fillStyle = shiftColor(hex, -10);
+    ctx.fillRect(W*0.57, H*0.94, W*0.35, H*0.04);
+    drawStitch(ctx, W*0.57, H*0.940, W*0.92, H*0.940, hexAlpha(acc,0.32), 1.5);
+    ctx.restore();
+
+    // Centre back seam (inseam outline)
+    ctx.strokeStyle = isBlack ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.14)';
+    ctx.lineWidth = W*0.004;
+    ctx.beginPath();
+    ctx.moveTo(W*0.50, H*0.08); ctx.lineTo(W*0.50, H*0.32);
+    ctx.stroke();
+
+  } else if (item.type === 'jacket') {
+    // ── JACKET BACK ───────────────────────────────────────────────────────
+    const sleeveLen = H * 0.40;
+    const lPitX = W*0.19, lPitY = H*0.32;
+    const rPitX = W*0.81, rPitY = H*0.32;
+    const hemY  = H*0.97;
+
+    // Left sleeve back
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W*0.03, H*0.10);
+    ctx.lineTo(W*0.05, H*0.10 + sleeveLen);
+    ctx.lineTo(W*0.20, H*0.10 + sleeveLen + H*0.01);
+    ctx.quadraticCurveTo(lPitX, lPitY, lPitX, lPitY);
+    ctx.closePath();
+    drawBackBody(() => {
+      ctx.beginPath();
+      ctx.moveTo(W*0.03, H*0.10);
+      ctx.lineTo(W*0.05, H*0.10 + sleeveLen);
+      ctx.lineTo(W*0.20, H*0.10 + sleeveLen + H*0.01);
+      ctx.quadraticCurveTo(lPitX, lPitY, lPitX, lPitY);
+      ctx.closePath();
+    });
+    ctx.fillStyle = shiftColor(hex, -14);
+    ctx.fillRect(W*0.05, H*0.10+sleeveLen, W*0.15, H*0.03);
+    ctx.restore();
+
+    // Right sleeve back
+    ctx.save();
+    drawBackBody(() => {
+      ctx.beginPath();
+      ctx.moveTo(W*0.97, H*0.10);
+      ctx.lineTo(W*0.95, H*0.10 + sleeveLen);
+      ctx.lineTo(W*0.80, H*0.10 + sleeveLen + H*0.01);
+      ctx.quadraticCurveTo(rPitX, rPitY, rPitX, rPitY);
+      ctx.closePath();
+    });
+    ctx.fillStyle = shiftColor(hex, -14);
+    ctx.fillRect(W*0.80, H*0.10+sleeveLen, W*0.15, H*0.03);
+    ctx.restore();
+
+    // Torso back
+    drawBackBody(() => {
+      ctx.beginPath();
+      ctx.moveTo(W*0.36, H*0.02);
+      ctx.lineTo(W*0.64, H*0.02);
+      ctx.lineTo(W*0.82, H*0.09);
+      ctx.quadraticCurveTo(rPitX+W*0.03, rPitY, rPitX, rPitY);
+      ctx.quadraticCurveTo(W*0.94, H*0.70, W*0.93, hemY);
+      ctx.quadraticCurveTo(W*0.50, hemY+H*0.012, W*0.07, hemY);
+      ctx.quadraticCurveTo(W*0.06, H*0.70, lPitX, lPitY);
+      ctx.lineTo(W*0.18, H*0.09);
+      ctx.closePath();
+    });
+
+    // Back yoke seam
+    ctx.strokeStyle = hexAlpha(acc, 0.28);
+    ctx.lineWidth   = W*0.004;
+    ctx.beginPath();
+    ctx.moveTo(W*0.18, H*0.09);
+    ctx.quadraticCurveTo(W*0.50, H*0.22, W*0.82, H*0.09);
+    ctx.stroke();
+    drawStitch(ctx, W*0.19, H*0.092, W*0.81, H*0.092, hexAlpha(acc,0.22), 1.2);
+
+    // Centre back seam
+    ctx.strokeStyle = hexAlpha(acc, 0.22);
+    ctx.lineWidth   = W*0.004;
+    ctx.beginPath();
+    ctx.moveTo(W*0.50, H*0.02); ctx.lineTo(W*0.50, hemY);
+    ctx.stroke();
+    drawStitch(ctx, W*0.505, H*0.025, W*0.505, hemY, hexAlpha(acc,0.15), 1.1);
+
+    // Back neck binding
+    ctx.fillStyle = shiftColor(hex, -10);
+    ctx.beginPath();
+    ctx.moveTo(W*0.36, H*0.02);
+    ctx.quadraticCurveTo(W*0.50, H*0.055, W*0.64, H*0.02);
+    ctx.lineTo(W*0.62, H*0.01);
+    ctx.quadraticCurveTo(W*0.50, H*0.038, W*0.38, H*0.01);
+    ctx.closePath();
+    ctx.fill();
+
+    drawNeckTag(W*0.50, H*0.055);
+
+    // Hem stitch
+    drawStitch(ctx, W*0.07, hemY-H*0.008, W*0.93, hemY-H*0.008, hexAlpha(acc,0.30), 1.5);
+
+  } else if (item.type === 'jersey') {
+    // ── JERSEY BACK ───────────────────────────────────────────────────────
+    const sleeveLen = H * 0.25;
+    const lPitX = W*0.20, lPitY = H*0.35;
+    const rPitX = W*0.80, rPitY = H*0.35;
+    const hemY  = H*0.97;
+
+    // Sleeves back
+    [[-1, W*0.02, W*0.04, W*0.19, lPitX, lPitY],
+     [ 1, W*0.98, W*0.96, W*0.81, rPitX, rPitY]
+    ].forEach(([side, ox, cx2, ix, pitX, pitY]) => {
+      drawBackBody(() => {
+        ctx.beginPath();
+        ctx.moveTo(ox, H*0.10);
+        ctx.lineTo(cx2, H*0.10 + sleeveLen);
+        ctx.lineTo(ix, H*0.10 + sleeveLen + H*0.005);
+        ctx.quadraticCurveTo(pitX, pitY - H*0.03, pitX, pitY);
+        ctx.closePath();
+      });
+      // Accent stripe on back sleeve too
+      ctx.fillStyle = acc;
+      const stripeX = side < 0 ? W*0.05 : W*0.91;
+      ctx.fillRect(stripeX, H*0.10, W*0.04, sleeveLen);
+    });
+
+    // Torso back
+    drawBackBody(() => {
+      ctx.beginPath();
+      ctx.moveTo(W*0.32, H*0.02);
+      ctx.lineTo(W*0.68, H*0.02);
+      ctx.lineTo(W*0.82, H*0.09);
+      ctx.quadraticCurveTo(rPitX+W*0.03, rPitY, rPitX, rPitY);
+      ctx.quadraticCurveTo(W*0.94, H*0.72, W*0.92, hemY);
+      ctx.quadraticCurveTo(W*0.50, hemY+H*0.012, W*0.08, hemY);
+      ctx.quadraticCurveTo(W*0.06, H*0.72, lPitX, lPitY);
+      ctx.lineTo(W*0.18, H*0.09);
+      ctx.closePath();
+    });
+
+    // Side stripes
+    ctx.fillStyle = acc;
+    ctx.fillRect(W*0.05, H*0.12, W*0.05, hemY - H*0.12);
+    ctx.fillRect(W*0.90, H*0.12, W*0.05, hemY - H*0.12);
+
+    // Back neck V-stripe
+    ctx.strokeStyle = acc;
+    ctx.lineWidth   = W * 0.028;
+    ctx.lineJoin    = 'round';
+    ctx.beginPath();
+    ctx.moveTo(W*0.32, H*0.02);
+    ctx.lineTo(W*0.50, H*0.09);
+    ctx.lineTo(W*0.68, H*0.02);
+    ctx.stroke();
+
+    // Back player number
+    ctx.textAlign = 'center';
+    ctx.font = `900 ${W*0.16}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillStyle = hexAlpha(acc, 0.65);
+    ctx.fillText('94', W*0.50, H*0.62);
+
+    ctx.fillStyle = shiftColor(hex, -12);
+    ctx.fillRect(W*0.08, hemY - H*0.04, W*0.84, H*0.05);
+    drawStitch(ctx, W*0.08, hemY-H*0.04, W*0.92, hemY-H*0.04, hexAlpha(acc,0.35), 1.5);
+    drawNeckTag(W*0.50, H*0.092);
+
+  } else {
+    // ── TOPS BACK (tee, polo, camp-shirt) ────────────────────────────────
+    const isShirt     = item.type === 'camp-shirt';
+    const isLong      = item.id   === 'white-shirt-01';
+    const isPolo      = item.type === 'polo';
+    const sleeveLen   = isLong ? H * 0.58 : H * (isShirt ? 0.36 : 0.24);
+    const lPitX = W*0.20, lPitY = H*(isShirt ? 0.33 : 0.36);
+    const rPitX = W*0.80, rPitY = lPitY;
+    const hemY  = H*0.97;
+
+    // Left sleeve back
+    drawBackBody(() => {
+      ctx.beginPath();
+      ctx.moveTo(W*0.02,  H*0.10);
+      ctx.quadraticCurveTo(W*0.04 - W*0.02, H*0.10 + sleeveLen - H*0.04,
+                           W*0.04, H*0.10 + sleeveLen);
+      ctx.lineTo(W*0.04 + W*0.14, H*0.10 + sleeveLen + H*0.005);
+      ctx.quadraticCurveTo(lPitX, lPitY - H*0.03, lPitX, lPitY);
+      ctx.closePath();
+    });
+    if (isLong) {
+      ctx.fillStyle = shiftColor(hex, -12);
+      ctx.fillRect(W*0.04, H*0.10+sleeveLen-H*0.03, W*0.14, H*0.04);
+    } else {
+      drawStitch(ctx, W*0.04, H*0.10+sleeveLen, W*0.18, H*0.10+sleeveLen+H*0.005,
+                 hexAlpha(acc,0.24), 1.1);
+    }
+
+    // Right sleeve back
+    drawBackBody(() => {
+      ctx.beginPath();
+      ctx.moveTo(W*0.98,  H*0.10);
+      ctx.quadraticCurveTo(W*0.96 + W*0.02, H*0.10 + sleeveLen - H*0.04,
+                           W*0.96, H*0.10 + sleeveLen);
+      ctx.lineTo(W*0.96 - W*0.14, H*0.10 + sleeveLen + H*0.005);
+      ctx.quadraticCurveTo(rPitX, rPitY - H*0.03, rPitX, rPitY);
+      ctx.closePath();
+    });
+    if (isLong) {
+      ctx.fillStyle = shiftColor(hex, -12);
+      ctx.fillRect(W*0.82, H*0.10+sleeveLen-H*0.03, W*0.14, H*0.04);
+    } else {
+      drawStitch(ctx, W*0.82, H*0.10+sleeveLen+H*0.005, W*0.96, H*0.10+sleeveLen,
+                 hexAlpha(acc,0.24), 1.1);
+    }
+
+    // Torso back
+    drawBackBody(() => {
+      ctx.beginPath();
+      // back neck: simple shallow scoop
+      ctx.moveTo(W*0.34, H*0.02);
+      ctx.quadraticCurveTo(W*0.50, H*0.055, W*0.66, H*0.02);
+      ctx.lineTo(W*0.82, H*0.09);
+      ctx.quadraticCurveTo(rPitX+W*0.03, rPitY, rPitX, rPitY);
+      ctx.quadraticCurveTo(W*0.95, H*0.72, W*0.93, hemY);
+      ctx.quadraticCurveTo(W*0.50, hemY+H*0.015, W*0.07, hemY);
+      ctx.quadraticCurveTo(W*0.05, H*0.72, lPitX, lPitY);
+      ctx.lineTo(W*0.18, H*0.09);
+      ctx.closePath();
+    });
+
+    // ── Back details ──────────────────────────────────────────────────────
+
+    // Back yoke seam (shirts)
+    if (isShirt || item.type === 'camp-shirt') {
+      ctx.strokeStyle = hexAlpha(acc, 0.24);
+      ctx.lineWidth   = W*0.004;
+      ctx.beginPath();
+      ctx.moveTo(W*0.18, H*0.09);
+      ctx.quadraticCurveTo(W*0.50, H*0.20, W*0.82, H*0.09);
+      ctx.stroke();
+      drawStitch(ctx, W*0.19, H*0.092, W*0.81, H*0.093, hexAlpha(acc,0.18), 1.1);
+    }
+
+    // Centre back seam
+    ctx.strokeStyle = hexAlpha(acc, 0.18);
+    ctx.lineWidth   = W*0.003;
+    ctx.beginPath();
+    ctx.moveTo(W*0.50, H*0.055); ctx.lineTo(W*0.50, hemY);
+    ctx.stroke();
+
+    // Back neck binding
+    ctx.fillStyle = shiftColor(hex, -10);
+    ctx.beginPath();
+    ctx.moveTo(W*0.34, H*0.02);
+    ctx.quadraticCurveTo(W*0.50, H*0.062, W*0.66, H*0.02);
+    ctx.lineTo(W*0.64, H*0.01);
+    ctx.quadraticCurveTo(W*0.50, H*0.045, W*0.36, H*0.01);
+    ctx.closePath();
+    ctx.fill();
+
+    drawNeckTag(W*0.50, H*0.060);
+
+    // Hem stitch
+    drawStitch(ctx, W*0.07, hemY-H*0.008, W*0.93, hemY-H*0.008, hexAlpha(acc,0.28), 1.5);
+    drawStitch(ctx, W*0.07, hemY-H*0.018, W*0.93, hemY-H*0.018, hexAlpha(acc,0.16), 1.1);
+    drawStitch(ctx, lPitX, lPitY, W*0.07, hemY, hexAlpha(acc,0.14), 1.1);
+    drawStitch(ctx, rPitX, rPitY, W*0.93, hemY, hexAlpha(acc,0.14), 1.1);
+  }
+
+  spriteCache.set(key, canvas);
+  return canvas;
+}
+
 // Cache for generated textures to keep memory and performance optimal
 const textureCache = new Map();
 const previewImageCache = new Map();

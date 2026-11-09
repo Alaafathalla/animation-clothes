@@ -92,3 +92,19 @@ animation-clothes/
 │   └── style.css       # Luxury editorial dark-neutral styling & glassmorphism
 └── package.json        # Project scripts & dependencies
 ```
+
+## Atelier update (November 2026)
+
+- Garment previews now use subdivided, curved Three.js meshes with subtle moving fold and hem displacement. These are stylized fabric surfaces, **not** full physically simulated cloth or scanned 3D garments.
+- The hanger hardware and visible rail have been reduced for a cleaner showroom appearance.
+- Use the **AUTO TOUR** button to cycle automatically through the collection. Click again to pause.
+- Existing inspection, colorway switching, products, and shopping cart logic remain in place.
+
+### Run
+
+```bash
+npm install
+npm run dev
+```
+
+For truly photorealistic 360-degree garments, the next step is to replace these procedurally animated panels with properly modeled and textured GLB garments (e.g. CLO3D/Blender exported models).

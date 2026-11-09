@@ -11,6 +11,9 @@ import { sound } from './sound.js';
    ========================================================================== */
 
 const RACK_SPACING = 2.25;
+let cinematicMode = false;
+let cinematicElapsed = 0;
+let cinematicLastIndex = -1;
 
 const state = {
   mode: 'carousel', // 'carousel' | 'inspect'
@@ -145,6 +148,7 @@ railGroup.add(railMesh);
     railMaterial
   );
   bracket.position.set(bx, 3.72, 0);
+  bracket.visible = false;
   railGroup.add(bracket);
 });
 
@@ -777,7 +781,18 @@ function animate() {
     spotLight.position.x = THREE.MathUtils.lerp(spotLight.position.x, activeWorldX * 0.45, 0.08);
   }
 
+  if (cinematicMode && state.mode === 'carousel' && !state.isDragging &&
+      !detailSheet.classList.contains('visible') && !bagDrawer.classList.contains('open')) {
+    cinematicElapsed += dt;
+    const nextIndex = Math.floor(cinematicElapsed / 5.5) % pieces.length;
+    if (nextIndex !== cinematicLastIndex) {
+      cinematicLastIndex = nextIndex;
+      selectIndex(nextIndex);
+    }
+  }
+
   pieces.forEach((piece, index) => {
+    piece.animateFabric(elapsed + index * 0.47, index === state.selectedIndex ? 1 : 0.45);
     const isSelected = index === state.selectedIndex;
     const isHovered = index === state.hoveredIndex;
 
@@ -798,7 +813,8 @@ function animate() {
       parallaxX = mouseParallaxY * 0.06; // moves slightly in pitch
     }
 
-    piece.garmentGroup.rotation.z = piece.swingAngle + parallaxZ;
+    piece.garmentGroup.rotation.z = piece.swingAngle + parallaxZ +
+      Math.sin(elapsed * 0.81 + index) * 0.006;
     piece.garmentGroup.rotation.x = parallaxX;
 
     // 3. Arrow Rotation & Drag Rotation Physics
@@ -816,7 +832,7 @@ function animate() {
     piece.swivelGroup.rotation.y = piece.rotationY + parallaxY;
 
     if (state.mode === 'carousel') {
-      const breathing = Math.sin(elapsed * 1.3 + index * 0.8) * 0.006;
+      const breathing = Math.sin(elapsed * 1.3 + index * 0.8) * 0.010;
       piece.garmentGroup.position.y = breathing + (isHovered ? 0.05 : 0);
 
       const targetScale = isSelected ? 1.05 : 0.90;
@@ -837,11 +853,27 @@ function animate() {
   if (state.mode === 'inspect') {
     controls.update();
   } else {
-    camera.position.lerp(carouselCamPos, 0.08);
+    const cinematicCam = carouselCamPos.clone();
+    cinematicCam.x += Math.sin(elapsed * 0.22) * (cinematicMode ? 0.32 : 0.065);
+    cinematicCam.y += Math.sin(elapsed * 0.31) * 0.035;
+    camera.position.lerp(cinematicCam, 0.05);
     camera.lookAt(carouselCamLook);
   }
 
   renderer.render(scene, camera);
+}
+
+// Optional editorial showroom autoplay. Manual browsing remains available.
+const cinematicBtn = document.querySelector('#cinematic-btn');
+if (cinematicBtn) {
+  cinematicBtn.addEventListener('click', () => {
+    cinematicMode = !cinematicMode;
+    cinematicBtn.classList.toggle('is-playing', cinematicMode);
+    cinematicBtn.setAttribute('aria-pressed', String(cinematicMode));
+    cinematicBtn.textContent = cinematicMode ? 'Ⅱ  PAUSE SHOW' : '▶  AUTO TOUR';
+    cinematicElapsed = state.selectedIndex * 5.5;
+    cinematicLastIndex = state.selectedIndex;
+  });
 }
 
 // Initial bootstrap
